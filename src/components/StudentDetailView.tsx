@@ -82,10 +82,14 @@ Alamat Email: ${student.email}`;
   };
 
   const handleShareProfile = async () => {
-    const shareUrl = window.location.href;
+    // Generate clean canonical share URL: https://domain/#mhs=ID
+    const baseUrl = `${window.location.origin}${window.location.pathname}`.replace(/\/$/, '');
+    const studentIdentifier = student.id || student.nim;
+    const shareUrl = `${baseUrl}/#mhs=${encodeURIComponent(studentIdentifier)}`;
+
     const shareData = {
       title: `Profil ${student.namaLengkap} - Logika 2026`,
-      text: `Lihat profil mahasiswa ${student.namaLengkap} (${student.nim}) dari ${student.kelompok} di Logika 2026.`,
+      text: `Lihat profil mahasiswa ${student.namaLengkap} (${student.nim}) dari ${student.kelompok} di Logika 2026`,
       url: shareUrl,
     };
 

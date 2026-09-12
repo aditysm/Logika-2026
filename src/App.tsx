@@ -54,22 +54,92 @@ export default function App() {
     }
   };
 
+  // Helper to extract student ID or NIM from URL (hash, search params, or pathname)
+  const getRequestedStudentIdFromUrl = (): string | null => {
+    // 1. Check hash: #mhs=XYZ, #nim=XYZ, #id=XYZ, or #XYZ
+    const hash = window.location.hash;
+    if (hash) {
+      if (hash.startsWith('#mhs=')) {
+        return decodeURIComponent(hash.replace('#mhs=', '').trim());
+      }
+      if (hash.startsWith('#nim=')) {
+        return decodeURIComponent(hash.replace('#nim=', '').trim());
+      }
+      if (hash.startsWith('#id=')) {
+        return decodeURIComponent(hash.replace('#id=', '').trim());
+      }
+      if (hash.startsWith('#/mhs/')) {
+        return decodeURIComponent(hash.replace('#/mhs/', '').trim());
+      }
+      const rawHash = hash.replace(/^#\/?/, '').trim();
+      if (rawHash && !rawHash.includes('&') && !rawHash.includes('=')) {
+        return decodeURIComponent(rawHash);
+      }
+    }
+
+    // 2. Check query parameter: ?mhs=XYZ or ?id=XYZ or ?nim=XYZ
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('mhs') || params.get('nim') || params.get('id');
+      if (q) return decodeURIComponent(q.trim());
+    } catch {}
+
+    // 3. Check pathname: /mhs/XYZ
+    const path = window.location.pathname;
+    const mhsMatch = path.match(/\/mhs\/([^/?#]+)/i);
+    if (mhsMatch && mhsMatch[1]) {
+      return decodeURIComponent(mhsMatch[1].trim());
+    }
+
+    return null;
+  };
+
+  const findStudentInList = (list: Mahasiswa[], query: string): Mahasiswa | undefined => {
+    if (!query) return undefined;
+    const normalized = query.toLowerCase().trim();
+    return list.find(
+      (s) =>
+        (s.id && s.id.toLowerCase().trim() === normalized) ||
+        (s.nim && s.nim.toLowerCase().trim() === normalized)
+    );
+  };
+
   useEffect(() => {
     loadData();
 
-    // If user arrived directly with a hash on page load, push base state first so pressing back returns to list
-    if (window.location.hash.startsWith('#mhs=')) {
-      const directHash = window.location.hash;
+    // If user arrived directly with a share link on page load, push base state first so pressing back returns to list
+    const requestedId = getRequestedStudentIdFromUrl();
+    if (requestedId) {
       window.history.replaceState({ view: 'list' }, '', window.location.pathname);
-      window.history.pushState({ view: 'detail' }, '', directHash);
+      window.history.pushState(
+        { view: 'detail', id: requestedId },
+        '',
+        `#mhs=${encodeURIComponent(requestedId)}`
+      );
     }
   }, []);
+
+  // Sync selected student whenever student data finishes loading
+  useEffect(() => {
+    if (students.length === 0) return;
+
+    const requestedId = getRequestedStudentIdFromUrl();
+    if (requestedId) {
+      const found = findStudentInList(students, requestedId);
+      if (found) {
+        setSelectedStudent(found);
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+    }
+  }, [students]);
 
   // Sync with browser back/forward buttons via popstate and hashchange
   useEffect(() => {
     const handlePopState = () => {
-      const hash = window.location.hash;
-      if (!hash || !hash.startsWith('#mhs=')) {
+      const requestedId = getRequestedStudentIdFromUrl();
+      if (!requestedId) {
         setSelectedStudent(null);
         // Restore search position when going back via browser history
         const savedPos = searchScrollPosRef.current;
@@ -78,9 +148,8 @@ export default function App() {
           document.documentElement.scrollTop = savedPos;
           document.body.scrollTop = savedPos;
         });
-      } else {
-        const id = decodeURIComponent(hash.replace('#mhs=', ''));
-        const found = students.find((s) => s.id === id || s.nim === id);
+      } else if (students.length > 0) {
+        const found = findStudentInList(students, requestedId);
         if (found) {
           if (!selectedStudent) {
             searchScrollPosRef.current =
@@ -126,7 +195,7 @@ export default function App() {
     setSelectedStudent(null);
 
     // If currently on a hash, push base state so browser back returns to list rather than exit
-    if (window.location.hash.startsWith('#mhs=')) {
+    if (window.location.hash.startsWith('#mhs=') || window.location.hash) {
       window.history.pushState({ view: 'list' }, '', window.location.pathname);
     }
 
@@ -216,7 +285,25 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <AnimatePresence mode="wait">
-          {selectedStudent ? (
+          {isLoading && !selectedStudent && Boolean(getRequestedStudentIdFromUrl()) ? (
+            <motion.div
+              key="loading-detail"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="bg-white border border-slate-200/90 rounded-3xl p-8 sm:p-12 text-center max-w-lg mx-auto shadow-xs my-8"
+            >
+              <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 rounded-2xl mx-auto mb-4 flex items-center justify-center animate-pulse">
+                <div className="w-8 h-8 bg-indigo-200 rounded-lg" />
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-1">
+                Memuat Profil Mahasiswa...
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500">
+                Menghubungkan dan memuat data profil lengkap dari direktori Logika 2026.
+              </p>
+            </motion.div>
+          ) : selectedStudent ? (
             /* Dedicated Detail Page View */
             <motion.div
               key={`detail-${selectedStudent.id}`}
