@@ -1,4 +1,5 @@
 import { ArrowUpDown, Filter, Search, X } from 'lucide-react';
+import { CustomSelect, CustomSelectOption } from './CustomSelect';
 
 interface SearchBarProps {
   searchQuery: string;
@@ -6,11 +7,17 @@ interface SearchBarProps {
   selectedGroup: string;
   onGroupChange: (group: string) => void;
   groups: string[];
-  sortBy: 'nama' | 'nim' | 'kelompok' | 'asal';
-  onSortChange: (sort: 'nama' | 'nim' | 'kelompok' | 'asal') => void;
+  sortBy: 'nama' | 'nim' | 'kelompok';
+  onSortChange: (sort: 'nama' | 'nim' | 'kelompok') => void;
   totalFiltered: number;
   totalAll: number;
 }
+
+const SORT_OPTIONS: CustomSelectOption<'nama' | 'nim' | 'kelompok'>[] = [
+  { value: 'nama', label: 'Nama (A-Z)' },
+  { value: 'nim', label: 'NIM' },
+  { value: 'kelompok', label: 'Kelompok Logika' },
+];
 
 export function SearchBar({
   searchQuery,
@@ -27,7 +34,7 @@ export function SearchBar({
     <div className="w-full space-y-3">
       {/* Primary Search Input */}
       <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-600 transition-colors">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
           <Search className="w-5 h-5" />
         </div>
         <input
@@ -35,15 +42,15 @@ export function SearchBar({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Cari nama lengkap, panggilan, NIM, asal rumah, atau hobi..."
-          className="w-full pl-11 pr-10 py-3.5 bg-white border border-slate-300 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base shadow-sm transition-all"
+          placeholder="Cari nama lengkap, panggilan, NIM, atau kelompok..."
+          className="w-full pl-11 pr-10 py-3.5 bg-white border border-slate-300 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base shadow-xs transition-all"
         />
         {searchQuery && (
           <button
             id="btn-clear-search"
             type="button"
             onClick={() => onSearchChange('')}
-            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
             title="Hapus pencarian"
           >
             <X className="w-4 h-4" />
@@ -52,22 +59,22 @@ export function SearchBar({
       </div>
 
       {/* Filters & Sorting Row */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
         {/* Group Filter Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 sm:pb-0 scrollbar-thin text-xs text-slate-600">
-          <div className="flex items-center gap-1 text-slate-500 mr-1 pl-1">
-            <Filter className="w-3.5 h-3.5" />
-            <span className="font-medium">Kelompok:</span>
+          <div className="flex items-center gap-1 text-slate-500 mr-1 pl-1 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-blue-600" />
+            <span className="font-semibold">Kelompok:</span>
           </div>
 
           <button
             id="chip-group-all"
             type="button"
             onClick={() => onGroupChange('ALL')}
-            className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
               selectedGroup === 'ALL'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
             }`}
           >
             Semua ({totalAll})
@@ -79,10 +86,10 @@ export function SearchBar({
               id={`chip-group-${grp.replace(/\s+/g, '-').toLowerCase()}`}
               type="button"
               onClick={() => onGroupChange(grp)}
-              className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all cursor-pointer ${
                 selectedGroup === grp
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                  ? 'bg-blue-600 text-white font-bold shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
               }`}
             >
               {grp}
@@ -91,34 +98,27 @@ export function SearchBar({
         </div>
 
         {/* Sort & Count */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 self-end sm:self-auto w-full sm:w-auto">
+        <div className="flex items-center justify-between sm:justify-end gap-3 self-end sm:self-auto w-full sm:w-auto shrink-0">
           <span className="text-xs text-slate-500 font-medium">
             {totalFiltered === totalAll ? (
               <span>Menampilkan {totalAll} mahasiswa</span>
             ) : (
               <span>
-                Ditemukan <strong className="text-indigo-600">{totalFiltered}</strong> dari{' '}
+                Ditemukan <strong className="text-blue-600">{totalFiltered}</strong> dari{' '}
                 {totalAll}
               </span>
             )}
           </span>
 
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-xs">
-            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-500 hidden md:inline">Urutkan:</span>
-            <select
+          <div className="flex items-center gap-1.5 min-w-[160px]">
+            <CustomSelect
               id="select-sort-students"
               value={sortBy}
-              onChange={(e) =>
-                onSortChange(e.target.value as 'nama' | 'nim' | 'kelompok' | 'asal')
-              }
-              className="bg-transparent text-slate-800 font-medium focus:outline-none cursor-pointer pr-1"
-            >
-              <option value="nama">Nama (A-Z)</option>
-              <option value="nim">NIM</option>
-              <option value="kelompok">Kelompok</option>
-              <option value="asal">Asal Rumah</option>
-            </select>
+              onChange={onSortChange}
+              options={SORT_OPTIONS}
+              size="sm"
+              buttonClassName="bg-white"
+            />
           </div>
         </div>
       </div>
