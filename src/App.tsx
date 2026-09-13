@@ -266,7 +266,7 @@ export default function App() {
     } else {
       const requestedId = getRequestedStudentIdFromUrl();
       if (requestedId) {
-        window.history.replaceState({ view: 'list' }, '', window.location.pathname);
+        // Do nothing here, wait for students to load in the second useEffect
       }
     }
 
