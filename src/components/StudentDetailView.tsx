@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   ArrowLeft,
   Camera,
@@ -17,14 +18,21 @@ import {
   IdCard,
   Mail,
   MapPin,
+  QrCode,
   Phone,
   Share2,
   Tag,
   TrendingUp,
   User,
   Users,
+  Lock,
+  Crown,
+  FolderCheck,
+  UserCheck,
+  Sparkles,
+  FileDown,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
 import { formatWhatsAppUrl, formatPhoneDisplay } from '../lib/supabase';
 import { formatIndonesianDate, hasTakenPhoto } from '../lib/photoStorage';
@@ -41,6 +49,8 @@ interface StudentDetailViewProps {
   onOpenUploadModal?: (student: Mahasiswa) => void;
   onViewPhoto?: (photoRecord: PhotoRecord) => void;
   onEditProfile?: () => void;
+  onOpenPremiumModal?: () => void;
+  onGenerateReport?: () => void;
 }
 
 export function StudentDetailView({
@@ -54,10 +64,14 @@ export function StudentDetailView({
   onOpenUploadModal,
   onViewPhoto,
   onEditProfile,
+  onOpenPremiumModal,
+  onGenerateReport,
 }: StudentDetailViewProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
+
+  const [showQr, setShowQr] = useState(false);
 
   // Determine if viewing own user profile
   const isOwnProfile = Boolean(
@@ -82,7 +96,7 @@ export function StudentDetailView({
       ? allStudents[currentIndex + 1]
       : null;
 
-  const waUrl = formatWhatsAppUrl(student.noWa, student.namaPanggilan || student.namaLengkap);
+  const waUrl = formatWhatsAppUrl(student.noWa, student.namaPanggilan || student.namaLengkap, currentUser);
 
   const handleCopy = (text: string, label: string) => {
     if (!text || text === '-') return;
@@ -108,12 +122,16 @@ Alamat Email: ${student.email}`;
     setTimeout(() => setCopiedAll(false), 2000);
   };
 
-  const handleShareProfile = async () => {
+  const getProfileUrl = () => {
     const baseUrl = `${window.location.origin}${window.location.pathname}`.replace(/\/$/, '');
     const cleanNim = student.nim && student.nim !== '-' ? student.nim.replace(/[\/\s]/g, '-') : null;
     const studentIdentifier = cleanNim || student.id;
-    const shareUrl = `${baseUrl}/#mhs=${encodeURIComponent(studentIdentifier)}`;
+    return `${baseUrl}/#mhs=${encodeURIComponent(studentIdentifier)}`;
+  };
 
+  const handleShareProfile = async () => {
+    const shareUrl = getProfileUrl();
+    
     const shareData = {
       title: `Profil ${student.namaLengkap} - Logika 2026`,
       text: `Lihat profil mahasiswa ${student.namaLengkap} (${student.nim}) dari ${student.kelompok} di Logika 2026`,
@@ -146,7 +164,7 @@ Alamat Email: ${student.email}`;
     document.body.scrollTop = 0;
   };
 
-  const backButtonText = isOwnProfile ? 'Kembali ke Pencarian' : 'Kembali ke Hasil Pencarian';
+  const backButtonText = 'Kembali ke Menu Utama';
 
   // Calculate personal progress when viewing own profile
   const myFriends = allStudents.filter(
@@ -157,6 +175,7 @@ Alamat Email: ${student.email}`;
     hasTakenPhoto(photoRecords, student.nim, friend.nim)
   ).length;
   const myPercentage = myTotalFriends > 0 ? Math.round((myTakenCount / myTotalFriends) * 100) : 0;
+  const activeTier = currentUser?.tier || student.tier || 'free';
 
   return (
     <motion.div
@@ -185,28 +204,69 @@ Alamat Email: ${student.email}`;
       <section className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-xs font-semibold">
-                <Users className="w-3.5 h-3.5" />
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-xs font-semibold h-7">
+                <Users className="w-3.5 h-3.5 text-blue-500" />
                 <span>{student.kelompok}</span>
               </span>
               {student.namaPanggilan && student.namaPanggilan !== '-' && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-medium">
-                  <Tag className="w-3 h-3 text-slate-500" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium h-7">
+                  <Tag className="w-3.5 h-3.5 text-slate-400" />
                   <span>Sapaan: {student.namaPanggilan}</span>
                 </span>
               )}
               {isOwnProfile && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold h-7">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Profil Saya</span>
                 </span>
               )}
+              {isOwnProfile && (
+                (() => {
+                  const activeTier = currentUser?.tier || student.tier || 'free';
+                  if (activeTier === 'pro') {
+                    return (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-semibold h-7 shadow-2xs">
+                        <Crown className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Tier: Pro</span>
+                      </span>
+                    );
+                  }
+                  if (activeTier === 'basic') {
+                    return (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-semibold h-7 shadow-2xs">
+                        <FolderCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Tier: Basic</span>
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold h-7 shadow-2xs">
+                      <User className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Tier: Free</span>
+                    </span>
+                  );
+                })()
+              )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              {student.namaLengkap}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                {student.namaLengkap}
+              </h1>
+              <button
+                type="button"
+                onClick={() => setShowQr(!showQr)}
+                className={`p-1.5 rounded-lg border transition-all ${
+                  showQr 
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
+                    : 'bg-white text-slate-400 hover:text-blue-600 border-slate-200 hover:border-blue-200 shadow-xs'
+                }`}
+                title="Tampilkan QR Code Profil"
+              >
+                <QrCode className="w-5 h-5 sm:w-6 h-6" />
+              </button>
+            </div>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-slate-500">
               <div className="flex items-center gap-1.5 font-mono font-medium text-slate-700">
@@ -218,6 +278,43 @@ Alamat Email: ${student.email}`;
                 <span>{student.asalRumah}</span>
               </div>
             </div>
+
+            {/* QR Code Section - Global for all profiles */}
+            <AnimatePresence>
+              {showQr && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                  animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  className="overflow-hidden bg-slate-50 border border-slate-200 rounded-2xl p-6"
+                >
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                      <QRCodeCanvas 
+                        value={getProfileUrl()} 
+                        size={180}
+                        level="H"
+                        includeMargin={false}
+                        imageSettings={{
+                          src: `${window.location.origin}/favicon.ico`,
+                          x: undefined,
+                          y: undefined,
+                          height: 30,
+                          width: 30,
+                          excavate: true,
+                        }}
+                      />
+                    </div>
+                    <div className="text-center space-y-1">
+                      <p className="text-sm font-bold text-slate-900">Scan QR Code</p>
+                      <p className="text-xs text-slate-500 max-w-[200px]">
+                        Scan untuk melihat profil {student.namaPanggilan || student.namaLengkap} di perangkat lain
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -275,23 +372,28 @@ Alamat Email: ${student.email}`;
               </button>
 
               {/* 2. Google Drive Pribadi */}
-              {student.driveFolderUrl ? (
+              {(currentUser?.tier || student.tier || 'free') === 'free' ? (
+                <button
+                  type="button"
+                  onClick={onOpenPremiumModal}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px] cursor-pointer"
+                  title="Upgrade ke Basic untuk membuka Drive Folder Tugas"
+                >
+                  <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="truncate">Drive Terkunci (Free)</span>
+                </button>
+              ) : (
                 <a
                   id="btn-detail-own-drive"
-                  href={student.driveFolderUrl}
+                  href="https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] text-slate-800 rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px]"
                 >
                   <Folder className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span className="truncate">Drive Saya</span>
+                  <span className="truncate">Drive Folder Tugas</span>
                   <ExternalLink className="w-3.5 h-3.5 opacity-60 shrink-0 hidden sm:inline" />
                 </a>
-              ) : (
-                <div className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-semibold w-full min-h-[42px] cursor-not-allowed">
-                  <Folder className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Drive Belum Ada</span>
-                </div>
               )}
 
               {/* 3. Bagikan Profil */}
@@ -335,6 +437,115 @@ Alamat Email: ${student.email}`;
                   </>
                 )}
               </button>
+            </div>
+
+            {/* Premium Actions & Word Report (moved here to keep user focus) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/60 mt-4 space-y-4">
+              {/* Tautan Google Drive Folder Tugas Info Section */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/60">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Folder className="w-4 h-4 text-amber-500" />
+                    <span className="text-xs font-bold text-slate-800">Tautan Google Drive Folder Tugas</span>
+                  </div>
+                  {activeTier === 'free' ? (
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      <strong className="text-rose-600">Status: Terkunci (Free Tier)</strong>. Anda berada pada paket Free. Untuk mengakses folder penyimpanan Google Drive khusus tugas kuliah ini, silakan tingkatkan akun Anda ke <strong>Paket Basic</strong> atau <strong>Paket Pro</strong>.
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      <strong className="text-emerald-700">Status: Terbuka ({activeTier.toUpperCase()})</strong>. Ini adalah folder tempat rekan Anda dapat mengunggah foto bersama dengan Anda.
+                    </p>
+                  )}
+                </div>
+                {activeTier !== 'free' && (
+                  <a
+                    href="https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white border border-slate-200 rounded-xl transition-all shadow-2xs whitespace-nowrap"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Buka Drive Folder</span>
+                  </a>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-blue-600" />
+                    <span className="text-xs font-bold text-slate-800">Layanan &amp; Sesi Aktif</span>
+                  </div>
+                  
+                  {activeTier === 'free' && (
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Anda menggunakan paket <strong>Free</strong>. Pilih Paket Basic untuk mengaktifkan folder penyimpanan Google Drive!
+                    </p>
+                  )}
+                  {activeTier === 'basic' && (
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Anda menggunakan paket <strong>Basic</strong>. Penyimpanan aktif. Pilih Paket Pro untuk mengunduh Laporan Word (.docx)!
+                    </p>
+                  )}
+                  {activeTier === 'pro' && (
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {myPercentage >= 100 ? (
+                        <span>Anda menggunakan paket <strong>Pro</strong>. Progres 100% tercapai! Silakan unduh Laporan Word sekarang.</span>
+                      ) : (
+                        <span>Anda menggunakan paket <strong>Pro</strong>. Kumpulkan foto rekan kuliah hingga 100% untuk mengunduh Laporan Word!</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                  {/* Laporan .docx Action Button */}
+                  {activeTier === 'pro' ? (
+                    myPercentage >= 100 ? (
+                      <button
+                        type="button"
+                        onClick={onGenerateReport}
+                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-900 hover:text-slate-950 bg-amber-400 hover:bg-amber-500 rounded-xl transition-all shadow-xs cursor-pointer animate-pulse"
+                      >
+                        <FileDown className="w-3.5 h-3.5" />
+                        <span>Unduh Laporan Word (.docx)</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed"
+                        title={`Progres baru ${myPercentage}%. Selesaikan hingga 100% untuk mengaktifkan tombol unduh laporan!`}
+                      >
+                        <Lock className="w-3.5 h-3.5 text-slate-300" />
+                        <span>Unduh Laporan Word ({myPercentage}%)</span>
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onOpenPremiumModal}
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer"
+                      title="Pilih Paket Pro dan kumpulkan foto rekan kuliah hingga 100% untuk mengunduh laporan Word"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Unduh Laporan Word (.docx)</span>
+                    </button>
+                  )}
+
+                  {/* Upgrade / Billing Button */}
+                  {activeTier !== 'pro' && (
+                    <button
+                      type="button"
+                      onClick={onOpenPremiumModal}
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl transition-all shadow-xs cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-white" />
+                      <span>{activeTier === 'free' ? 'Pilih Paket Basic (Rp2.000)' : 'Pilih Paket Pro (Rp5.000)'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -497,27 +708,11 @@ Alamat Email: ${student.email}`;
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Section 1: Informasi Akademik & Identitas */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-blue-600" />
-              <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-                Identitas &amp; Akademik
-              </h2>
-            </div>
-            {/* Drive Link ONLY shown if isOwnProfile */}
-            {isOwnProfile && student.driveFolderUrl && (
-              <a
-                href={student.driveFolderUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100/70 border border-blue-100 px-2.5 py-1 rounded-lg transition-colors"
-                title="Buka Folder Google Drive Pribadi Saya"
-              >
-                <Folder className="w-3.5 h-3.5 text-blue-600" />
-                <span>Drive Saya</span>
-                <ExternalLink className="w-3 h-3 opacity-70" />
-              </a>
-            )}
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+            <User className="w-4 h-4 text-blue-600" />
+            <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+              Identitas &amp; Akademik
+            </h2>
           </div>
 
           {/* 1. Nama Lengkap */}
@@ -680,7 +875,7 @@ Alamat Email: ${student.email}`;
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <Home className="w-4 h-4 text-blue-600" />
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-            Informasi Asal, Domisili &amp; Folder Tugas
+            Informasi Asal &amp; Domisili
           </h2>
         </div>
 
@@ -733,42 +928,6 @@ Alamat Email: ${student.email}`;
             </p>
           </div>
         </div>
-
-        {/* 10. Tautan Google Drive Folder Tugas (Hanya tampil jika milik profil sendiri) */}
-        {isOwnProfile && (
-          <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/70">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-1 min-w-0">
-                <span className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                  <Folder className="w-4 h-4 text-amber-600 shrink-0" />
-                  TAUTAN GOOGLE DRIVE FOLDER TUGAS
-                </span>
-                <p className="text-xs text-slate-600 truncate max-w-lg">
-                  {student.driveFolderUrl || 'Belum ada tautan folder Google Drive yang terhubung.'}
-                </p>
-              </div>
-
-              {currentUser?.driveFolderUrl || student.driveFolderUrl ? (
-                <a
-                  id="btn-open-drive-folder"
-                  href={currentUser?.driveFolderUrl || student.driveFolderUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-bold rounded-xl text-xs shadow-xs transition-all shrink-0 cursor-pointer"
-                  title="Buka Folder Google Drive Tugas"
-                >
-                  <Folder className="w-4 h-4" />
-                  <span>Buka Google Drive</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              ) : (
-                <div className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-100 text-slate-400 rounded-xl text-xs font-semibold shrink-0 cursor-not-allowed">
-                  <span>Drive Belum Tersedia</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Bottom Navigation Bar */}

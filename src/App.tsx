@@ -16,6 +16,8 @@ import { EditProfilePage } from './components/EditProfilePage';
 import { PhotoViewerModal } from './components/PhotoViewerModal';
 import { LogoutConfirmModal } from './components/LogoutConfirmModal';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
+import { PricingPage } from './components/PricingPage';
+import { generateStudentReport } from './lib/reportGenerator';
 import { ConnectionStatus, Mahasiswa, PhotoRecord } from './types';
 import {
   fetchStudentsFromSupabase,
@@ -41,6 +43,7 @@ import {
   normalizeNim,
   applyProfileOverrides,
   saveProfileOverride,
+  clearProfileOverrides,
 } from './lib/photoStorage';
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, RefreshCw, SearchX, Users, X } from 'lucide-react';
 
@@ -49,7 +52,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedGroup, setSelectedGroup] = useState<string>('ALL');
-  const [sortBy, setSortBy] = useState<'nama' | 'nim' | 'kelompok'>('nama');
+  const [sortBy, setSortBy] = useState<'nama' | 'nim' | 'kelompok'>('kelompok');
   const [selectedStudent, setSelectedStudent] = useState<Mahasiswa | null>(null);
 
   // Dedicated Views & Sub-pages
@@ -64,6 +67,7 @@ export default function App() {
   const [filterPhotoStatus, setFilterPhotoStatus] = useState<'ALL' | 'BELUM' | 'SUDAH'>('ALL');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState<boolean>(false);
+  const [isPricingView, setIsPricingView] = useState<boolean>(false);
 
   // Track search page scroll position to restore upon returning
   const searchScrollPosRef = useRef<number>(0);
@@ -89,14 +93,33 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const loadData = async () => {
+  const [refreshKey, setRefreshKey] = useState<number>(0);
+
+  const loadData = async (force = false) => {
     setIsLoading(true);
     try {
+      if (force) {
+        clearProfileOverrides();
+        // Also clear memory photo cache to force remote fetch
+        setMemoryPhotoRecords([]);
+      }
+
       const activeConfig = getActiveSupabaseConfig();
       const result = await fetchStudentsFromSupabase(activeConfig);
       const enhancedStudents = applyProfileOverrides(result.data);
 
       setStudents(enhancedStudents);
+      
+      // Update selectedStudent if it exists to point to the fresh data
+      if (selectedStudent) {
+        const freshStudent = enhancedStudents.find(
+          (s) => s.id === selectedStudent.id || (s.nim && s.nim === selectedStudent.nim)
+        );
+        if (freshStudent) {
+          setSelectedStudent(freshStudent);
+        }
+      }
+
       setConnectionStatus({
         isConnected: result.isRealData,
         isCustomConfig: Boolean(activeConfig.url && activeConfig.anonKey),
@@ -113,6 +136,9 @@ export default function App() {
       setPhotoRecords(combined);
       setMemoryPhotoRecords(combined);
       syncToLocalStorage(combined);
+      
+      // Increment refreshKey to trigger re-fetches in child components
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       console.error('Error fetching students:', err);
     } finally {
@@ -146,6 +172,10 @@ export default function App() {
             });
           }
         });
+      },
+      () => {
+        // Payment logs changed remotely
+        loadData();
       }
     );
 
@@ -231,6 +261,8 @@ export default function App() {
 
     if (isLoginPathOrHash()) {
       setIsLoginView(true);
+    } else if (window.location.hash === '#pricing' || window.location.hash === '#/pricing') {
+      setIsPricingView(true);
     } else {
       const requestedId = getRequestedStudentIdFromUrl();
       if (requestedId) {
@@ -239,13 +271,22 @@ export default function App() {
     }
 
     const handlePopState = (e: PopStateEvent) => {
+      const hash = window.location.hash;
       if (isLoginPathOrHash()) {
         setIsLoginView(true);
         setSelectedStudent(null);
         setUploadTargetStudent(null);
         setIsEditProfileView(false);
+        setIsPricingView(false);
+      } else if (hash === '#pricing' || hash === '#/pricing' || (e.state && e.state.view === 'pricing')) {
+        setIsLoginView(false);
+        setSelectedStudent(null);
+        setUploadTargetStudent(null);
+        setIsEditProfileView(false);
+        setIsPricingView(true);
       } else if (e.state && e.state.view === 'upload' && e.state.studentId) {
         setIsLoginView(false);
+        setIsPricingView(false);
         setStudents((currentStudents) => {
           const match = findStudentInList(currentStudents, e.state.studentId);
           if (match) setUploadTargetStudent(match);
@@ -253,6 +294,7 @@ export default function App() {
         });
       } else if (e.state && e.state.view === 'detail' && e.state.studentId) {
         setIsLoginView(false);
+        setIsPricingView(false);
         setUploadTargetStudent(null);
         setIsEditProfileView(false);
         setStudents((currentStudents) => {
@@ -265,6 +307,7 @@ export default function App() {
         setSelectedStudent(null);
         setUploadTargetStudent(null);
         setIsEditProfileView(false);
+        setIsPricingView(false);
       }
     };
 
@@ -342,6 +385,7 @@ export default function App() {
     setSelectedStudent(student);
     setUploadTargetStudent(null);
     setIsLoginView(false);
+    setIsPricingView(false);
 
     const targetId = student.nim || student.id;
     window.history.pushState(
@@ -370,14 +414,25 @@ export default function App() {
     });
   };
 
-  // Logo "Logika 2026" clicked: Return to search list and reset scroll to 0
+  // Logo "Logika 2026" clicked: Return to search list and reset scroll to 0, filters, and pagination
   const handleGoHomeLogo = () => {
     setSelectedStudent(null);
     setUploadTargetStudent(null);
     setPendingUploadTarget(null);
     setIsEditProfileView(false);
     setIsLoginView(false);
+    setIsPricingView(false);
     searchScrollPosRef.current = 0;
+
+    // Reset filters
+    setSearchQuery('');
+    setDebouncedSearchQuery('');
+    setSelectedGroup('ALL');
+    setFilterPhotoStatus('ALL');
+    setSortBy('nama');
+
+    // Reset pagination
+    setCurrentPage(1);
 
     if (window.location.hash) {
       window.history.pushState({ view: 'list' }, '', window.location.pathname);
@@ -389,6 +444,23 @@ export default function App() {
   };
 
   // Dedicated Open & Close handlers for sub-pages with scroll reset to 0 and position restoration upon return
+  const handleOpenPricing = () => {
+    setIsPricingView(true);
+    setSelectedStudent(null);
+    setUploadTargetStudent(null);
+    setIsEditProfileView(false);
+    setIsLoginView(false);
+    window.history.pushState({ view: 'pricing' }, '', '#/pricing');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  };
+
+  const handleClosePricing = () => {
+    setIsPricingView(false);
+    window.history.pushState({ view: 'list' }, '', window.location.pathname);
+  };
+
   const handleOpenUploadPhoto = (student: Mahasiswa) => {
     formReturnScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
 
@@ -427,6 +499,15 @@ export default function App() {
         setToastMessage(
           `Foto bersama ${student.namaPanggilan || student.namaLengkap} sudah pernah diunggah & tersimpan di Drive.`
         );
+        setTimeout(() => setToastMessage(null), 3500);
+        return;
+      }
+
+      // Check tier limit: Free tier (Rp0) is blocked from uploading photos
+      const effectiveTier = currentUser.tier || 'free';
+      if (effectiveTier === 'free') {
+        handleOpenPricing();
+        setToastMessage('Unggah foto bersama memerlukan akses Paket Dasar (Rp2.000). Silakan upgrade terlebih dahulu!');
         setTimeout(() => setToastMessage(null), 3500);
         return;
       }
@@ -500,7 +581,12 @@ export default function App() {
   // Current active logged-in user
   const currentUser = useMemo(() => {
     if (!currentUserNim || students.length === 0) return null;
-    return findStudentInList(students, currentUserNim) || null;
+    const baseUser = findStudentInList(students, currentUserNim);
+    if (!baseUser) return null;
+    return {
+      ...baseUser,
+      tier: baseUser.tier || 'free',
+    };
   }, [currentUserNim, students]);
 
   const handleLoginNim = (nim: string) => {
@@ -545,19 +631,33 @@ export default function App() {
         );
         setTimeout(() => setToastMessage(null), 4000);
       } else {
-        // Automatically redirect to upload photo for the pending target!
-        setSelectedStudent(null);
-        setUploadTargetStudent(target);
-        const targetIdentifier = target.nim || target.id;
-        window.history.pushState(
-          { view: 'upload', studentId: targetIdentifier },
-          '',
-          `#/upload?nim=${encodeURIComponent(targetIdentifier)}`
-        );
-        setToastMessage(
-          `Selamat datang, ${name}! Melanjutkan unggah foto bersama ${target.namaPanggilan || target.namaLengkap}...`
-        );
-        setTimeout(() => setToastMessage(null), 4000);
+        // Check effective tier for redirecting
+        const effectiveTier = found.tier || 'free';
+
+        if (effectiveTier === 'free') {
+          setUploadTargetStudent(null);
+          setSelectedStudent(null);
+          setIsPricingView(true);
+          window.history.pushState({ view: 'pricing' }, '', '#/pricing');
+          setToastMessage(
+            `Selamat datang, ${name}! Akun Free tidak dapat mengunggah foto. Silakan pilih paket Basic atau Pro.`
+          );
+          setTimeout(() => setToastMessage(null), 5000);
+        } else {
+          // Automatically redirect to upload photo for the pending target!
+          setSelectedStudent(null);
+          setUploadTargetStudent(target);
+          const targetIdentifier = target.nim || target.id;
+          window.history.pushState(
+            { view: 'upload', studentId: targetIdentifier },
+            '',
+            `#/upload?nim=${encodeURIComponent(targetIdentifier)}`
+          );
+          setToastMessage(
+            `Selamat datang, ${name}! Melanjutkan unggah foto bersama ${target.namaPanggilan || target.namaLengkap}...`
+          );
+          setTimeout(() => setToastMessage(null), 4000);
+        }
       }
     } else {
       setSelectedStudent(null);
@@ -632,6 +732,23 @@ export default function App() {
         searchSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
+  };
+
+  const handleGenerateReport = async () => {
+    if (!currentUser) return;
+    try {
+      setToastMessage('Sedang menyiapkan dokumen laporan (.docx)...');
+      const targetFriends = students.filter(
+        (s) => currentUser && normalizeNim(s.nim) !== normalizeNim(currentUser.nim)
+      );
+      await generateStudentReport(currentUser, targetFriends, photoRecords);
+      setToastMessage('Laporan (.docx) berhasil digenerate & diunduh!');
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch (err: any) {
+      console.error('Error generating report:', err);
+      setToastMessage(`Gagal mengunduh laporan: ${err?.message || err}`);
+      setTimeout(() => setToastMessage(null), 3500);
+    }
   };
 
   // Extract distinct groups for filtering (Kelompok 1 - 10)
@@ -721,15 +838,39 @@ export default function App() {
       }
 
       // 2. Sort within the same photo status group
-      if (selectedGroup !== 'ALL' || sortBy === 'nama') {
-        return (a.namaLengkap || '').localeCompare(b.namaLengkap || '');
+      // Default: Kelompok -> Nama -> NIM
+      if (sortBy === 'kelompok') {
+        const groupA = a.kelompok || '';
+        const groupB = b.kelompok || '';
+        const groupCompare = groupA.localeCompare(groupB, undefined, { numeric: true });
+        if (groupCompare !== 0) return groupCompare;
+        
+        const nameA = a.namaLengkap || '';
+        const nameB = b.namaLengkap || '';
+        const nameCompare = nameA.localeCompare(nameB);
+        if (nameCompare !== 0) return nameCompare;
+        
+        return (a.nim || '').localeCompare(b.nim || '');
       }
+
+      if (sortBy === 'nama') {
+        const nameA = a.namaLengkap || '';
+        const nameB = b.namaLengkap || '';
+        const nameCompare = nameA.localeCompare(nameB);
+        if (nameCompare !== 0) return nameCompare;
+
+        const groupA = a.kelompok || '';
+        const groupB = b.kelompok || '';
+        const groupCompare = groupA.localeCompare(groupB, undefined, { numeric: true });
+        if (groupCompare !== 0) return groupCompare;
+
+        return (a.nim || '').localeCompare(b.nim || '');
+      }
+
       if (sortBy === 'nim') {
         return (a.nim || '').localeCompare(b.nim || '');
       }
-      if (sortBy === 'kelompok') {
-        return (a.kelompok || '').localeCompare(b.kelompok || '');
-      }
+
       return 0;
     });
   }, [filteredStudents, sortBy, selectedGroup, currentUser, photoRecords]);
@@ -740,6 +881,26 @@ export default function App() {
     const start = (currentPage - 1) * itemsPerPage;
     return sortedStudents.slice(start, start + itemsPerPage);
   }, [sortedStudents, currentPage, itemsPerPage]);
+
+  const getNametagFormUrl = () => {
+    const baseUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfB2McYCDvHjUhK-lAJuZdZrh7lYNjBDQBIELbEA5Bq4Ky5Lw/viewform';
+    if (!currentUser) return `${baseUrl}?usp=pp_url`;
+    
+    const params = new URLSearchParams();
+    params.set('usp', 'pp_url');
+    params.set('entry.1072324759', currentUser.nim);
+    params.set('entry.229140403', currentUser.namaLengkap);
+    
+    if (currentUser.namaPanggilan) {
+      params.set('entry.1759704668', currentUser.namaPanggilan);
+    }
+    
+    if (currentUser.noWa) {
+      params.set('entry.1285106839', currentUser.noWa);
+    }
+    
+    return `${baseUrl}?${params.toString()}`;
+  };
 
   // If user is currently on the login view route (/login or toggled), show the minimalist LoginPage
   if (isLoginView) {
@@ -782,7 +943,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-slate-50 pt-16">
       {/* Top Fixed Navigation */}
       <Navbar
-        onRefresh={loadData}
+        onRefresh={() => loadData(true)}
         isLoading={isLoading}
         totalStudents={currentUser ? Math.max(0, students.length - 1) : students.length}
         onGoHome={handleGoHomeLogo}
@@ -791,6 +952,8 @@ export default function App() {
         onViewProfile={() => currentUser && handleSelectStudent(currentUser)}
         onLogout={() => setIsLogoutModalOpen(true)}
         onOpenLogin={handleOpenLogin}
+        onOpenPremiumModal={handleOpenPricing}
+        onPesanNametag={() => window.open(getNametagFormUrl(), '_blank')}
       />
 
       {/* Main Content Area */}
@@ -847,6 +1010,24 @@ export default function App() {
                 onBack={handleCloseEditProfile}
               />
             </motion.div>
+          ) : isPricingView ? (
+            /* Dedicated Pricing & Monetization Page */
+            <motion.div
+              key="pricing-page"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+            >
+              <PricingPage
+                currentUser={currentUser}
+                refreshKey={refreshKey}
+                onBack={handleClosePricing}
+                onRefreshProfileStatus={async () => {
+                  await loadData();
+                }}
+              />
+            </motion.div>
           ) : selectedStudent ? (
             /* Dedicated Detail Page View */
             <motion.div
@@ -873,6 +1054,8 @@ export default function App() {
                 }}
                 onViewPhoto={(rec) => setViewingPhotoRecord(rec)}
                 onEditProfile={handleOpenEditProfile}
+                onOpenPremiumModal={handleOpenPricing}
+                onGenerateReport={handleGenerateReport}
               />
             </motion.div>
           ) : (
@@ -893,6 +1076,8 @@ export default function App() {
                   photoRecords={photoRecords}
                   filterPhotoStatus={filterPhotoStatus}
                   onFilterPhotoStatusChange={handleFilterPhotoStatusChange}
+                  onOpenPremiumModal={handleOpenPricing}
+                  onGenerateReport={handleGenerateReport}
                 />
               )}
 
@@ -993,7 +1178,7 @@ export default function App() {
                     {totalPages > 1 && (
                       <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs">
                         <div className="text-xs sm:text-sm text-slate-600">
-                          Menampilkan <span className="font-bold text-slate-900">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-bold text-slate-900">{Math.min(currentPage * itemsPerPage, sortedStudents.length)}</span> dari <span className="font-bold text-slate-900">{sortedStudents.length}</span> mahasiswa
+                          Menampilkan <span className="font-bold text-slate-900">{sortedStudents.length}</span> mahasiswa
                         </div>
 
                         <div className="flex items-center gap-1.5 flex-wrap justify-center">
@@ -1125,10 +1310,23 @@ export default function App() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-200 bg-white/80 py-6 text-center text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto px-4 flex items-center justify-center text-center">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-1.5 text-center">
           <p className="font-medium text-slate-600">
             Data Peserta Logika 2026 &bull; Powered by <span className="font-bold text-slate-800">Dity Store</span>
           </p>
+          {currentUser && (
+            <p className="text-slate-500 font-medium">
+              Belum punya nametag?{' '}
+              <a
+                href={getNametagFormUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 font-bold underline"
+              >
+                Pesan Sekarang
+              </a>
+            </p>
+          )}
         </div>
       </footer>
 
@@ -1149,6 +1347,8 @@ export default function App() {
         onConfirm={handleLogout}
         onClose={() => setIsLogoutModalOpen(false)}
       />
+
+
 
       {/* Floating Toast Notification */}
       <AnimatePresence>

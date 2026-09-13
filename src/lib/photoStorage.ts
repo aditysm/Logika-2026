@@ -153,6 +153,14 @@ export function saveProfileOverride(nim: string, updatedData: Partial<Mahasiswa>
   }
 }
 
+export function clearProfileOverrides(): void {
+  try {
+    localStorage.removeItem(PROFILE_OVERRIDES_KEY);
+  } catch (err) {
+    console.error('Failed to clear profile overrides', err);
+  }
+}
+
 export function applyProfileOverrides(students: Mahasiswa[]): Mahasiswa[] {
   const overrides = getProfileOverrides();
   if (Object.keys(overrides).length === 0) return students;
@@ -161,7 +169,9 @@ export function applyProfileOverrides(students: Mahasiswa[]): Mahasiswa[] {
     const cleanNim = normalizeNim(s.nim);
     const override = overrides[cleanNim];
     if (override) {
-      return { ...s, ...override };
+      // Never allow local overrides to change the official account tier
+      const { tier, ...safeOverride } = override;
+      return { ...s, ...safeOverride };
     }
     return s;
   });

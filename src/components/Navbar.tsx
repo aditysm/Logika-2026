@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users } from 'lucide-react';
+import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck, Tag } from 'lucide-react';
 import { ConnectionStatus, Mahasiswa } from '../types';
 
 interface NavbarProps {
@@ -14,6 +14,8 @@ interface NavbarProps {
   onViewProfile?: () => void;
   onLogout?: () => void;
   onOpenLogin?: () => void;
+  onOpenPremiumModal?: () => void;
+  onPesanNametag?: () => void;
 }
 
 export function Navbar({
@@ -26,6 +28,8 @@ export function Navbar({
   onViewProfile,
   onLogout,
   onOpenLogin,
+  onOpenPremiumModal,
+  onPesanNametag,
 }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -129,23 +133,61 @@ export function Navbar({
                   role="menu"
                 >
                   {/* User Profile Header */}
-                  <div className="px-4 py-3 border-b border-slate-100">
-                    <p className="text-xs font-semibold text-slate-400">Akun Saya</p>
-                    <p className="text-sm font-bold text-slate-900 truncate mt-0.5">
+                  <div className="px-4 py-3 border-b border-slate-100 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-slate-400">Akun Saya</p>
+                      {/* Dropdown Tier Badge */}
+                      {(currentUser.tier || 'free') === 'free' && (
+                        <span className="text-[9px] font-extrabold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5">
+                          <User className="w-2.5 h-2.5 text-slate-500" />
+                          <span>Free</span>
+                        </span>
+                      )}
+                      {(currentUser.tier || 'free') === 'basic' && (
+                        <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5">
+                          <FolderCheck className="w-2.5 h-2.5 text-emerald-500" />
+                          <span>Basic</span>
+                        </span>
+                      )}
+                      {(currentUser.tier || 'free') === 'pro' && (
+                        <span className="text-[9px] font-extrabold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5">
+                          <Crown className="w-2.5 h-2.5 text-amber-500" />
+                          <span>Pro</span>
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold text-slate-900 truncate">
                       {currentUser.namaLengkap}
                     </p>
-                    <p className="text-xs font-mono text-slate-500 truncate mt-0.5">
+                    <p className="text-xs font-mono text-slate-500 truncate">
                       {currentUser.nim}
                     </p>
-                    <div className="mt-1.5">
+                    <div className="pt-0.5">
                       <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md truncate max-w-full">
                         {currentUser.kelompok}
                       </span>
                     </div>
                   </div>
 
-                  {/* Menu Action 1: Lihat Profil */}
+                  {/* Menu Action 1: Pesan Nametag */}
                   <div className="p-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onPesanNametag?.();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-indigo-700 hover:bg-indigo-50/50 rounded-xl transition-colors text-left cursor-pointer"
+                    >
+                      <Tag className="w-4 h-4 text-indigo-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span>Pesan Nametag</span>
+                        <p className="text-[10px] font-normal text-slate-400 truncate">
+                          Order nametag fisik eksklusif
+                        </p>
+                      </div>
+                    </button>
+
                     <button
                       id="menu-btn-lihat-profil"
                       type="button"
@@ -165,6 +207,23 @@ export function Navbar({
                       </div>
                     </button>
 
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenPremiumModal?.();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-indigo-700 hover:bg-indigo-50/50 rounded-xl transition-colors text-left cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 text-indigo-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span>Akses Premium</span>
+                        <p className="text-[10px] font-normal text-slate-400 truncate">
+                          {(currentUser.tier || 'free') === 'pro' ? 'Semua Fitur Aktif!' : 'Beli / Upgrade Tier Akses'}
+                        </p>
+                      </div>
+                    </button>
+
                     {/* Menu Action 2: Logout */}
                     <button
                       id="menu-btn-logout"
@@ -180,7 +239,7 @@ export function Navbar({
                       <div className="flex-1 min-w-0">
                         <span>Logout</span>
                         <p className="text-[10px] font-normal text-rose-400 truncate">
-                          Keluar dan ganti mahasiswa
+                          Keluar dan ganti akun
                         </p>
                       </div>
                     </button>
@@ -192,8 +251,9 @@ export function Navbar({
             <button
               id="btn-navbar-login"
               type="button"
+              disabled={isLoading}
               onClick={onOpenLogin}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all shadow-xs ml-1 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all shadow-xs ml-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Masuk Akun Mahasiswa"
             >
               <LogIn className="w-3.5 h-3.5" />

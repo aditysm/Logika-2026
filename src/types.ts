@@ -11,6 +11,7 @@ export interface Mahasiswa {
   noWa: string;
   kelompok: string;
   driveFolderUrl?: string;
+  tier?: 'free' | 'basic' | 'pro';
   raw?: Record<string, unknown>;
 }
 
@@ -40,4 +41,15 @@ export interface ConnectionStatus {
   tableName: string;
   errorMessage?: string;
   totalLoaded: number;
+}
+
+export interface PaymentLog {
+  id: number;
+  created_at?: string;
+  user_nim: string;
+  amount: number;
+  target_tier: string;
+  payment_proof_url?: string;
+  status: 'pending' | 'approved' | 'rejected' | string;
+  approved_at?: string;
 }

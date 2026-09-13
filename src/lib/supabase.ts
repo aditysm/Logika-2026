@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Mahasiswa, PhotoRecord, SupabaseConfig } from '../types';
+import { Mahasiswa, PhotoRecord, SupabaseConfig, PaymentLog } from '../types';
 
 /**
  * ============================================================================
@@ -182,6 +182,9 @@ export function normalizeMahasiswaRow(
     'folder_drive',
   ]);
 
+  const rawTier = findValue(row, ['tier', 'status_tier', 'level', 'TIER', 'Tier']).toLowerCase().trim();
+  const tier: 'free' | 'basic' | 'pro' = (rawTier === 'pro' || rawTier === 'basic') ? rawTier : 'free';
+
   return {
     id: (row.id as string) || (row.ID as string) || `mhs-${nim || index}-${Date.now()}`,
     timestamp: timestamp || '-',
@@ -197,6 +200,7 @@ export function normalizeMahasiswaRow(
     driveFolderUrl:
       driveFolderUrl ||
       (nim ? `https://drive.google.com/drive/folders/mhs-${nim.replace(/[\/\s]/g, '-')}` : undefined),
+    tier,
     raw: row,
   };
 }
@@ -430,17 +434,20 @@ export async function saveProfileToSupabase(
   }
 }
 
-// Subscribe to Supabase Realtime changes for profiles & photo_logs
+// Subscribe to Supabase Realtime changes for profiles, photo_logs & payment_logs
 export function subscribeToSupabaseRealtime(
   onProfilesChange: () => void,
-  onPhotoLogsChange: () => void
+  onPhotoLogsChange: () => void,
+  onPaymentLogsChange?: () => void
 ): () => void {
   const supabase = getSupabaseClient();
   if (!supabase) return () => {};
 
   try {
-    const channel = supabase
-      .channel('realtime-logika-2026')
+    const uniqueChannelName = `realtime-logika-2026-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    const channel = supabase.channel(uniqueChannelName);
+
+    channel
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: DEFAULT_PROFILES_TABLE },
@@ -455,7 +462,23 @@ export function subscribeToSupabaseRealtime(
           onPhotoLogsChange();
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payment_logs' },
+        () => {
+          if (onPaymentLogsChange) {
+            onPaymentLogsChange();
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to real-time updates');
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Real-time subscription error status:', status);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -463,6 +486,60 @@ export function subscribeToSupabaseRealtime(
   } catch (err) {
     console.warn('Realtime subscription error:', err);
     return () => {};
+  }
+}
+
+// Fetch payment logs for a user from Supabase
+export async function fetchPaymentLogsFromSupabase(
+  nim: string,
+  customConfig?: SupabaseConfig
+): Promise<PaymentLog[]> {
+  const supabase = getSupabaseClient(customConfig);
+  if (!supabase) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('payment_logs')
+      .select('*')
+      .eq('user_nim', nim)
+      .order('id', { ascending: false });
+
+    if (error) {
+      console.warn('Failed to fetch payment_logs:', error.message);
+      return [];
+    }
+
+    return (data || []) as PaymentLog[];
+  } catch (err) {
+    console.error('Error fetching payment_logs:', err);
+    return [];
+  }
+}
+
+// Create new payment log in Supabase
+export async function createPaymentLogInSupabase(
+  payload: {
+    user_nim: string;
+    amount: number;
+    target_tier: string;
+    payment_proof_url?: string;
+    status: string;
+  },
+  customConfig?: SupabaseConfig
+): Promise<boolean> {
+  const supabase = getSupabaseClient(customConfig);
+  if (!supabase) return false;
+
+  try {
+    const { error } = await supabase.from('payment_logs').insert([payload]);
+    if (error) {
+      console.warn('Failed to insert payment_logs:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error inserting payment_log:', err);
+    return false;
   }
 }
 
@@ -483,7 +560,7 @@ export function formatPhoneDisplay(rawPhone: string): string {
   return rawPhone;
 }
 
-export function formatWhatsAppUrl(rawPhone: string, studentName?: string): string {
+export function formatWhatsAppUrl(rawPhone: string, studentName?: string, currentUser?: Mahasiswa | null): string {
   if (!rawPhone || rawPhone === '-') return '';
 
   let cleaned = rawPhone.replace(/\D/g, '');
@@ -497,9 +574,25 @@ export function formatWhatsAppUrl(rawPhone: string, studentName?: string): strin
     cleaned = '62' + cleaned;
   }
 
-  const message = encodeURIComponent(
-    `Halo ${studentName || ''}, salam kenal! Saya mahasiswa Logika 2026.`
-  );
+  let text = `Halo ${studentName || ''}, salam kenal dari Peserta Logika 2026.\n`;
+  if (currentUser) {
+    let angkatan = '2026';
+    const nimUpper = (currentUser.nim || '').toUpperCase();
+    if (nimUpper.includes('F1D026')) {
+      angkatan = '2026';
+    } else if (nimUpper.includes('F1D025')) {
+      angkatan = '2025';
+    } else {
+      const match = nimUpper.match(/F1D0([0-9]{2})/);
+      if (match && match[1]) {
+        angkatan = `20${match[1]}`;
+      }
+    }
+    text += `Perkenalkan nama saya ${currentUser.namaLengkap || ''} dengan Nim ${currentUser.nim || ''} dari Teknik Informatika Angkatan ${angkatan}, saya ingin bertanya mengenai`;
+  } else {
+    text += `Perkenalkan nama saya [nama lengkap] dengan Nim [Nim] dari Teknik Informatika Angkatan [angkatan], saya ingin bertanya mengenai`;
+  }
 
+  const message = encodeURIComponent(text);
   return `https://wa.me/${cleaned}?text=${message}`;
 }

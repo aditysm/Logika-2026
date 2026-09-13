@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, LogIn, Search, ShieldCheck, UserCheck, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, Loader2, LogIn, Search, ShieldCheck, UserCheck, X } from 'lucide-react';
 import { Mahasiswa } from '../types';
 import { findStudentInList } from '../lib/photoStorage';
 
@@ -108,8 +108,9 @@ export function LoginPage({
           <button
             id="btn-login-tanpa-akun"
             type="button"
+            disabled={isLoading}
             onClick={onContinueWithoutAccount}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-blue-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-blue-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             title="Lanjut ke pencarian direktori tanpa login"
           >
             <span>Tanpa Akun</span>
@@ -189,19 +190,22 @@ export function LoginPage({
                   id="input-nim-login"
                   type="text"
                   autoFocus
+                  disabled={isLoading}
                   value={nimInput}
                   onChange={(e) => {
                     setNimInput(e.target.value);
                     if (errorMsg) setErrorMsg(null);
                   }}
-                  placeholder="F1D026...."
+                  placeholder={isLoading ? "Mohon tunggu..." : "F1D026...."}
                   className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:bg-white transition-all ${
+                    isLoading ? 'opacity-60 cursor-not-allowed' : ''
+                  } ${
                     errorMsg
                       ? 'border-rose-300 focus:ring-rose-500'
                       : 'border-slate-200 focus:ring-blue-500 focus:border-blue-500'
                   }`}
                 />
-                {nimInput && (
+                {nimInput && !isLoading && (
                   <button
                     type="button"
                     onClick={() => setNimInput('')}
@@ -226,17 +230,22 @@ export function LoginPage({
               disabled={isLoading || !nimInput.trim()}
               className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              <LogIn className="w-4 h-4" />
-              <span>Masuk Akun</span>
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <LogIn className="w-4 h-4" />
+              )}
+              <span>{isLoading ? 'Sedang Memuat...' : 'Masuk Akun'}</span>
             </button>
           </form>
 
           {/* Quick Select Accordion / Modal for seamless testing */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
+          <div className={`mt-6 pt-5 border-t border-slate-100 ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
             <button
               type="button"
+              disabled={isLoading}
               onClick={() => setShowQuickSelect(!showQuickSelect)}
-              className="w-full flex items-center justify-between text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1 focus:outline-none"
+              className="w-full flex items-center justify-between text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1 focus:outline-none disabled:cursor-not-allowed"
             >
               <span>Atau pilih nama Anda langsung</span>
               <ChevronDown

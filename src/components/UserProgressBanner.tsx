@@ -1,9 +1,16 @@
+import { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   ExternalLink,
   Folder,
   TrendingUp,
   UserCheck,
+  Lock,
+  Crown,
+  Sparkles,
+  FileDown,
+  User,
+  FolderCheck,
 } from 'lucide-react';
 import { Mahasiswa, PhotoRecord } from '../types';
 import { normalizeNim, hasTakenPhoto } from '../lib/photoStorage';
@@ -14,6 +21,8 @@ interface UserProgressBannerProps {
   photoRecords: PhotoRecord[];
   filterPhotoStatus: 'ALL' | 'BELUM' | 'SUDAH';
   onFilterPhotoStatusChange: (status: 'ALL' | 'BELUM' | 'SUDAH') => void;
+  onOpenPremiumModal?: () => void;
+  onGenerateReport?: () => void;
 }
 
 export function UserProgressBanner({
@@ -22,7 +31,10 @@ export function UserProgressBanner({
   photoRecords,
   filterPhotoStatus,
   onFilterPhotoStatusChange,
+  onOpenPremiumModal,
+  onGenerateReport,
 }: UserProgressBannerProps) {
+  const currentTier = currentUser.tier || 'free';
   // Filter out current user from target friends count
   const friends = students.filter(
     (s) => currentUser && normalizeNim(s.nim) !== normalizeNim(currentUser.nim)
@@ -37,6 +49,38 @@ export function UserProgressBanner({
 
   const percentage = totalFriends > 0 ? Math.round((takenCount / totalFriends) * 100) : 0;
 
+  // Numeric count-up animation state
+  const [animatedTakenCount, setAnimatedTakenCount] = useState(0);
+
+  useEffect(() => {
+    const start = animatedTakenCount;
+    const end = takenCount;
+    if (start === end) return;
+
+    const duration = 1000; // 1 second animation duration
+    const startTime = performance.now();
+    let animationFrameId: number;
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeProgress = progress * (2 - progress); // easeOutQuad
+      const currentVal = Math.round(start + (end - start) * easeProgress);
+      setAnimatedTakenCount(currentVal);
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [takenCount]);
+
+  const animatedPercentage = totalFriends > 0 ? Math.round((animatedTakenCount / totalFriends) * 100) : 0;
+
   return (
     <div className="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-xs mb-6 sm:mb-8 relative overflow-hidden">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
@@ -46,34 +90,44 @@ export function UserProgressBanner({
             {currentUser.namaLengkap.charAt(0)}
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
-                <UserCheck className="w-3 h-3" />
-                Sesi Aktif
-              </span>
-              <span className="text-[11px] text-slate-500 font-medium truncate">
-                {currentUser.kelompok}
-              </span>
-            </div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate mt-0.5">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
               Halo, {currentUser.namaLengkap}
             </h2>
-            <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 font-mono mt-0.5">
+              <span className="font-sans font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-md text-[10px] leading-none shrink-0">
+                {currentUser.kelompok}
+              </span>
+              <span className="text-slate-300">&bull;</span>
               <span>{currentUser.nim}</span>
               {currentUser.driveFolderUrl && (
-                <>
-                  <span>&bull;</span>
-                  <a
-                    href={currentUser.driveFolderUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-1 font-sans text-[11px]"
-                  >
-                    <Folder className="w-3 h-3" />
-                    <span>Drive Pribadi</span>
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </a>
-                </>
+                currentTier === 'free' ? (
+                  <>
+                    <span className="text-slate-300">&bull;</span>
+                    <button
+                      type="button"
+                      onClick={onOpenPremiumModal}
+                      className="text-slate-400 hover:text-blue-600 inline-flex items-center gap-1 font-sans text-[11px] cursor-pointer"
+                      title="Pilih Paket Dasar untuk membuka Google Drive"
+                    >
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>Drive Terkunci</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-slate-300">&bull;</span>
+                    <a
+                      href={currentUser.driveFolderUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-1 font-sans text-[11px]"
+                    >
+                      <Folder className="w-3 h-3" />
+                      <span>Drive Pribadi</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </>
+                )
               )}
             </div>
           </div>
@@ -87,17 +141,21 @@ export function UserProgressBanner({
               <span>Progress Foto Bersama</span>
             </div>
             <span className="text-blue-700 font-bold tabular-nums">
-              {takenCount} dari {totalFriends} Teman ({percentage}%)
+              {animatedTakenCount} dari {totalFriends} Teman ({animatedPercentage}%)
             </span>
           </div>
 
           {/* Visual Progress Bar */}
-          <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+          <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/40 relative">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                percentage > 0 ? 'bg-blue-600' : 'bg-transparent'
+                animatedPercentage < 35
+                  ? 'bg-orange-500'
+                  : animatedPercentage < 75
+                  ? 'bg-amber-500'
+                  : 'bg-emerald-500'
               }`}
-              style={{ width: `${Math.min(100, percentage)}%` }}
+              style={{ width: `${Math.min(100, animatedPercentage)}%` }}
             />
           </div>
 
@@ -106,18 +164,18 @@ export function UserProgressBanner({
               type="button"
               onClick={() => onFilterPhotoStatusChange('SUDAH')}
               className={`flex items-center gap-1 font-semibold hover:underline cursor-pointer ${
-                takenCount > 0 ? 'text-emerald-600' : 'text-rose-600'
+                animatedTakenCount > 0 ? 'text-emerald-600' : 'text-rose-600'
               }`}
             >
-              <CheckCircle2 className={`w-3.5 h-3.5 ${takenCount > 0 ? 'text-emerald-600' : 'text-rose-500'}`} />
-              <span>{takenCount} Sudah Foto</span>
+              <CheckCircle2 className={`w-3.5 h-3.5 ${animatedTakenCount > 0 ? 'text-emerald-600' : 'text-rose-500'}`} />
+              <span>{animatedTakenCount} Sudah Foto</span>
             </button>
             <button
               type="button"
               onClick={() => onFilterPhotoStatusChange('BELUM')}
               className="text-slate-500 font-medium hover:text-blue-600 hover:underline cursor-pointer"
             >
-              <span>{Math.max(0, totalFriends - takenCount)} Belum Foto</span>
+              <span>{Math.max(0, totalFriends - animatedTakenCount)} Belum Foto</span>
             </button>
           </div>
         </div>
@@ -151,12 +209,8 @@ export function UserProgressBanner({
             onClick={() => onFilterPhotoStatusChange('SUDAH')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
               filterPhotoStatus === 'SUDAH'
-                ? takenCount > 0
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-rose-600 text-white shadow-xs'
-                : takenCount > 0
-                  ? 'text-slate-600 hover:text-emerald-600'
-                  : 'text-slate-600 hover:text-rose-600'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-emerald-600'
             }`}
           >
             Sudah ({takenCount})
