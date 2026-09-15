@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck, Tag } from 'lucide-react';
+import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck } from 'lucide-react';
 import { ConnectionStatus, Mahasiswa } from '../types';
 
 interface NavbarProps {
@@ -15,7 +15,6 @@ interface NavbarProps {
   onLogout?: () => void;
   onOpenLogin?: () => void;
   onOpenPremiumModal?: () => void;
-  onPesanNametag?: () => void;
 }
 
 export function Navbar({
@@ -29,7 +28,6 @@ export function Navbar({
   onLogout,
   onOpenLogin,
   onOpenPremiumModal,
-  onPesanNametag,
 }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -74,9 +72,11 @@ export function Navbar({
             <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight group-hover:text-blue-600 transition-colors">
               Logika 2026
             </h1>
-            <p className="text-xs text-slate-500 hidden sm:block">
-              {isDetailPage ? 'Detail Profil Mahasiswa' : 'Buku Kenangan & Direktori'}
-            </p>
+            {isDetailPage && (
+              <p className="text-xs text-slate-500 hidden sm:block">
+                Detail Profil Mahasiswa
+              </p>
+            )}
           </div>
         </button>
 
@@ -169,25 +169,7 @@ export function Navbar({
                     </div>
                   </div>
 
-                  {/* Menu Action 1: Pesan Nametag */}
                   <div className="p-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        onPesanNametag?.();
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-indigo-700 hover:bg-indigo-50/50 rounded-xl transition-colors text-left cursor-pointer"
-                    >
-                      <Tag className="w-4 h-4 text-indigo-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <span>Pesan Nametag</span>
-                        <p className="text-[10px] font-normal text-slate-400 truncate">
-                          Order nametag fisik eksklusif
-                        </p>
-                      </div>
-                    </button>
-
                     <button
                       id="menu-btn-lihat-profil"
                       type="button"

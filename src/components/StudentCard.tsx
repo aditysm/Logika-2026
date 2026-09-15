@@ -152,7 +152,7 @@ export function StudentCard({
               href={waUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+              className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
               title={`Chat WhatsApp ${formatPhoneDisplay(student.noWa)}`}
             >
               <WhatsAppIcon className="w-4 h-4" />
@@ -163,7 +163,7 @@ export function StudentCard({
             <a
               id={`link-email-card-${student.id}`}
               href={`mailto:${student.email}`}
-              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               title={`Kirim email ke ${student.email}`}
             >
               <Mail className="w-4 h-4" />

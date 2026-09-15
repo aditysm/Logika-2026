@@ -150,11 +150,12 @@ export function UploadPhotoPage({
     setUploadStatusMsg('Mengirim foto ke Google Drive & mencatat ke server...');
     let isUploadSuccess = true;
     let serverError = '';
+    let uploadRes: Awaited<ReturnType<typeof uploadFotoBersama>> | undefined;
 
     try {
       // 1. If we have binary File or cached preview, attempt upload
       if (selectedFile) {
-        const uploadRes = await uploadFotoBersama({
+        uploadRes = await uploadFotoBersama({
           file: selectedFile,
           nimA: currentUser.nim,
           nimB: targetStudent.nim,
@@ -176,6 +177,9 @@ export function UploadPhotoPage({
 
         if (uploadRes.success) {
           console.log('Upload Edge Function & pencatatan DB berhasil:', uploadRes.data);
+          if (uploadRes.data?.is_duplicate) {
+            console.log('Foto ini sudah pernah diunggah sebelumnya (duplikasi terdeteksi).');
+          }
         } else {
           console.warn('Edge function upload error:', uploadRes.error);
           isUploadSuccess = false;
@@ -216,15 +220,27 @@ export function UploadPhotoPage({
     }
 
     // 2. Update local state & UI after Drive upload & DB record succeeds
+    const uploadedPhotoLog = uploadRes?.data?.data;
+    const returnedPhotoUrl =
+      uploadedPhotoLog?.photo_url_a ||
+      uploadedPhotoLog?.photo_url_b ||
+      photoPreview ||
+      undefined;
+
     onSavePhoto({
       uploaderNim: currentUser.nim,
       uploaderNama: currentUser.namaLengkap,
       targetNim: targetStudent.nim,
       targetNama: targetStudent.namaLengkap,
       targetKelompok: targetStudent.kelompok,
-      photoUrl: photoPreview || undefined,
+      photoUrl: returnedPhotoUrl,
       photoFileName: fileName,
       driveFolderUrl: targetStudent.driveFolderUrl,
+      pairKey: uploadedPhotoLog?.pair_key,
+      driveFileIdA: uploadedPhotoLog?.drive_file_id_a,
+      driveFileIdB: uploadedPhotoLog?.drive_file_id_b,
+      photoUrlA: uploadedPhotoLog?.photo_url_a,
+      photoUrlB: uploadedPhotoLog?.photo_url_b,
     });
 
     setIsSubmitting(false);

@@ -84,7 +84,24 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>(searchQuery);
-  const itemsPerPage = 10;
+
+  // Layar lebar (desktop / >= 1024px) menampilkan 12 data, layar kecil menampilkan 10 data
+  const [isLargeScreen, setIsLargeScreen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const itemsPerPage = isLargeScreen ? 12 : 10;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -877,30 +894,17 @@ export default function App() {
 
   // Pagination & totalPages
   const totalPages = Math.ceil(sortedStudents.length / itemsPerPage) || 1;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(Math.max(1, totalPages));
+    }
+  }, [totalPages, currentPage]);
+
   const paginatedStudents = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return sortedStudents.slice(start, start + itemsPerPage);
   }, [sortedStudents, currentPage, itemsPerPage]);
-
-  const getNametagFormUrl = () => {
-    const baseUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfB2McYCDvHjUhK-lAJuZdZrh7lYNjBDQBIELbEA5Bq4Ky5Lw/viewform';
-    if (!currentUser) return `${baseUrl}?usp=pp_url`;
-    
-    const params = new URLSearchParams();
-    params.set('usp', 'pp_url');
-    params.set('entry.1072324759', currentUser.nim);
-    params.set('entry.229140403', currentUser.namaLengkap);
-    
-    if (currentUser.namaPanggilan) {
-      params.set('entry.1759704668', currentUser.namaPanggilan);
-    }
-    
-    if (currentUser.noWa) {
-      params.set('entry.1285106839', currentUser.noWa);
-    }
-    
-    return `${baseUrl}?${params.toString()}`;
-  };
 
   // If user is currently on the login view route (/login or toggled), show the minimalist LoginPage
   if (isLoginView) {
@@ -953,7 +957,6 @@ export default function App() {
         onLogout={() => setIsLogoutModalOpen(true)}
         onOpenLogin={handleOpenLogin}
         onOpenPremiumModal={handleOpenPricing}
-        onPesanNametag={() => window.open(getNametagFormUrl(), '_blank')}
       />
 
       {/* Main Content Area */}
@@ -1040,6 +1043,7 @@ export default function App() {
               <StudentDetailView
                 student={selectedStudent}
                 allStudents={sortedStudents}
+                totalStudents={students}
                 onBack={handleBackToList}
                 onSelectStudent={handleSelectStudent}
                 currentUser={currentUser}
@@ -1088,14 +1092,16 @@ export default function App() {
               >
                 <div className="absolute -right-16 -top-16 w-56 h-56 bg-blue-50 rounded-full blur-2xl pointer-events-none -z-0" />
 
-                <div className="relative z-10 max-w-3xl">
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                    Pencarian Mahasiswa
-                  </h2>
-                  <p className="text-sm sm:text-base text-slate-600 mt-1 mb-6 leading-relaxed">
-                    Temukan teman berdasarkan nama, NIM, asal daerah, atau kelompok logika.
-                    Pilih kartu mahasiswa untuk membuka halaman detail lengkap dan mengunggah foto bersama.
-                  </p>
+                <div className="relative z-10 w-full space-y-6">
+                  <div className="max-w-3xl">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                      Pencarian Mahasiswa
+                    </h2>
+                    <p className="text-sm sm:text-base text-slate-600 mt-1 leading-relaxed">
+                      Temukan teman berdasarkan nama, NIM, asal daerah, atau kelompok logika.
+                      Pilih kartu mahasiswa untuk membuka halaman detail lengkap dan mengunggah foto bersama.
+                    </p>
+                  </div>
 
                   {/* Interactive Search Bar & Group Filter */}
                   <SearchBar
@@ -1129,7 +1135,7 @@ export default function App() {
                 {isLoading ? (
                   /* Skeleton Loading Grid */
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[1, 2, 3, 4, 5, 6].map((idx) => (
+                    {Array.from({ length: isLargeScreen ? 12 : 6 }).map((_, idx) => (
                       <div
                         key={idx}
                         className="bg-white border border-slate-200 rounded-2xl p-5 animate-pulse space-y-3"
@@ -1314,19 +1320,6 @@ export default function App() {
           <p className="font-medium text-slate-600">
             Data Peserta Logika 2026 &bull; Powered by <span className="font-bold text-slate-800">Dity Store</span>
           </p>
-          {currentUser && (
-            <p className="text-slate-500 font-medium">
-              Belum punya nametag?{' '}
-              <a
-                href={getNametagFormUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 font-bold underline"
-              >
-                Pesan Sekarang
-              </a>
-            </p>
-          )}
         </div>
       </footer>
 

@@ -27,6 +27,11 @@ export interface PhotoRecord {
   photoFileName: string;
   notes?: string;
   driveFolderUrl?: string;
+  pairKey?: string;
+  driveFileIdA?: string;
+  driveFileIdB?: string;
+  photoUrlA?: string;
+  photoUrlB?: string;
 }
 
 export interface SupabaseConfig {

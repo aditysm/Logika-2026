@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Mahasiswa, PhotoRecord, SupabaseConfig, PaymentLog } from '../types';
+import { extractDriveFolderId } from './api';
 
 /**
  * ============================================================================
@@ -360,6 +361,11 @@ export async function fetchPhotoLogsFromSupabase(
         photoUrl: rawPhotoUrl,
         photoFileName: `${target?.namaLengkap || targetNim}_${targetNim.replace(/[\/\s]/g, '-')}.jpg`,
         driveFolderUrl: target?.driveFolderUrl,
+        pairKey: (row.pair_key as string) || undefined,
+        driveFileIdA: (row.drive_file_id_a as string) || undefined,
+        driveFileIdB: (row.drive_file_id_b as string) || undefined,
+        photoUrlA: (row.photo_url_a as string) || undefined,
+        photoUrlB: (row.photo_url_b as string) || undefined,
       };
     });
 
@@ -370,25 +376,41 @@ export async function fetchPhotoLogsFromSupabase(
   }
 }
 
-// Save photo log directly to Supabase photo_logs table
+// Save photo log directly to Supabase photo_logs table (matching PhotoService schema)
 export async function savePhotoLogToSupabase(
   userANim: string,
   userBNim: string,
   photoUrl?: string,
-  driveFileId?: string
+  driveFileId?: string,
+  extra?: {
+    driveFileIdA?: string;
+    driveFileIdB?: string;
+    photoUrlA?: string;
+    photoUrlB?: string;
+  }
 ): Promise<boolean> {
   const supabase = getSupabaseClient();
   if (!supabase) return false;
 
   try {
+    const cleanNimA = userANim.trim();
+    const cleanNimB = userBNim.trim();
+    const sortedNims = [cleanNimA, cleanNimB].sort();
+    const pairKey = `${sortedNims[0]}_${sortedNims[1]}`;
+
+    const payload: Record<string, unknown> = {
+      pair_key: pairKey,
+      user_a_nim: cleanNimA,
+      user_b_nim: cleanNimB,
+      photo_url_a: extra?.photoUrlA || photoUrl || null,
+      photo_url_b: extra?.photoUrlB || photoUrl || null,
+      drive_file_id_a: extra?.driveFileIdA || driveFileId || null,
+      drive_file_id_b: extra?.driveFileIdB || driveFileId || null,
+    };
+
     const { error } = await supabase.from(DEFAULT_PHOTO_LOGS_TABLE).upsert(
-      {
-        user_a_nim: userANim,
-        user_b_nim: userBNim,
-        photo_url: photoUrl || null,
-        drive_file_id: driveFileId || null,
-      },
-      { onConflict: 'user_a_nim,user_b_nim' }
+      payload,
+      { onConflict: 'pair_key' }
     );
 
     if (error) {
@@ -402,7 +424,7 @@ export async function savePhotoLogToSupabase(
   }
 }
 
-// Update profile directly to Supabase profiles table
+// Update profile directly to Supabase profiles table (matching ProfileService schema)
 export async function saveProfileToSupabase(
   nim: string,
   updatedData: Partial<Mahasiswa>
@@ -412,16 +434,30 @@ export async function saveProfileToSupabase(
 
   try {
     const payload: Record<string, unknown> = {};
-    if (updatedData.namaLengkap) payload.nama_lengkap = updatedData.namaLengkap;
-    if (updatedData.namaPanggilan) payload.nama_panggilan = updatedData.namaPanggilan;
-    if (updatedData.asalRumah) payload.asal_rumah = updatedData.asalRumah;
-    if (updatedData.alamatRumahDomisili) payload.alamat_domisili = updatedData.alamatRumahDomisili;
-    if (updatedData.hobi) payload.hobi = updatedData.hobi;
-    if (updatedData.noWa) payload.no_wa = updatedData.noWa;
-    if (updatedData.email) payload.email = updatedData.email;
-    if (updatedData.driveFolderUrl) payload.drive_folder_url = updatedData.driveFolderUrl;
+    if (updatedData.namaLengkap !== undefined) payload.nama_lengkap = updatedData.namaLengkap.trim();
+    if (updatedData.namaPanggilan !== undefined) payload.nama_panggilan = updatedData.namaPanggilan.trim();
+    if (updatedData.asalRumah !== undefined) payload.asal_rumah = updatedData.asalRumah.trim();
+    if (updatedData.alamatRumahDomisili !== undefined) payload.alamat_domisili = updatedData.alamatRumahDomisili.trim();
+    if (updatedData.hobi !== undefined) payload.hobi = updatedData.hobi.trim();
+    if (updatedData.noWa !== undefined) payload.no_wa = updatedData.noWa.trim();
+    if (updatedData.email !== undefined) payload.email = updatedData.email.trim();
 
-    const { error } = await supabase.from(DEFAULT_PROFILES_TABLE).update(payload).eq('nim', nim);
+    if (updatedData.kelompok !== undefined) {
+      const match = updatedData.kelompok.match(/(\d+)/);
+      if (match) {
+        payload.group_id = parseInt(match[1], 10);
+      }
+    }
+
+    if (updatedData.driveFolderUrl !== undefined) {
+      payload.drive_folder_url = updatedData.driveFolderUrl.trim();
+      const folderId = extractDriveFolderId(updatedData.driveFolderUrl);
+      if (folderId) {
+        payload.drive_folder_id = folderId;
+      }
+    }
+
+    const { error } = await supabase.from(DEFAULT_PROFILES_TABLE).update(payload).eq('nim', nim.trim());
 
     if (error) {
       console.warn('Supabase profile update error:', error.message);
@@ -471,12 +507,15 @@ export function subscribeToSupabaseRealtime(
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to real-time updates');
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Real-time subscription error status:', status);
+          // Connected successfully
+        } else if (status === 'CHANNEL_ERROR') {
+          // CHANNEL_ERROR occurs when postgres_changes replication is disabled on the Supabase project
+          // Handled gracefully without throwing fatal errors
+          console.warn('Real-time updates channel status:', status, err?.message || '');
+        } else if (status === 'TIMED_OUT') {
+          console.warn('Real-time connection timed out, fallback polling active.');
         }
       });
 

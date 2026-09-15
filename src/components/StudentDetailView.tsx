@@ -41,6 +41,7 @@ import { WhatsAppIcon } from './WhatsAppIcon';
 interface StudentDetailViewProps {
   student: Mahasiswa;
   allStudents: Mahasiswa[];
+  totalStudents?: Mahasiswa[];
   onBack: () => void;
   onSelectStudent: (student: Mahasiswa) => void;
   currentUser?: Mahasiswa | null;
@@ -56,6 +57,7 @@ interface StudentDetailViewProps {
 export function StudentDetailView({
   student,
   allStudents,
+  totalStudents,
   onBack,
   onSelectStudent,
   currentUser,
@@ -166,8 +168,10 @@ Alamat Email: ${student.email}`;
 
   const backButtonText = 'Kembali ke Menu Utama';
 
-  // Calculate personal progress when viewing own profile
-  const myFriends = allStudents.filter(
+  // Calculate personal progress when viewing own profile across total students (independent of group/search filter)
+  const masterStudentList =
+    totalStudents && totalStudents.length > 0 ? totalStudents : allStudents;
+  const myFriends = masterStudentList.filter(
     (s) => s.nim && student.nim && s.nim.replace(/[\/\s]/g, '') !== student.nim.replace(/[\/\s]/g, '')
   );
   const myTotalFriends = myFriends.length;
@@ -191,7 +195,7 @@ Alamat Email: ${student.email}`;
           id="btn-back-to-list"
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors group"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors group cursor-pointer"
         >
           <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 group-hover:border-blue-300 flex items-center justify-center transition-colors shadow-xs">
             <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-slate-600 group-hover:text-blue-600" />
@@ -332,7 +336,7 @@ Alamat Email: ${student.email}`;
                   </span>
                 </div>
                 <span className="text-xs font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200/80 shadow-2xs tabular-nums self-start sm:self-auto">
-                  {myTakenCount} dari {myTotalFriends} Teman Selesai ({myPercentage}%)
+                  {myTakenCount} dari {myTotalFriends} Teman ({myPercentage}%)
                 </span>
               </div>
 
@@ -349,10 +353,10 @@ Alamat Email: ${student.email}`;
               <div className="flex items-center justify-between text-xs pt-0.5">
                 <span className={`flex items-center gap-1.5 font-semibold ${myTakenCount > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
                   <CheckCircle2 className={`w-4 h-4 ${myTakenCount > 0 ? 'text-emerald-600' : 'text-rose-500'}`} />
-                  {myTakenCount} Foto Tercatat
+                  {myTakenCount} Sudah Foto
                 </span>
                 <span className="text-slate-500 font-medium">
-                  {Math.max(0, myTotalFriends - myTakenCount)} Teman Belum Foto
+                  {Math.max(0, myTotalFriends - myTakenCount)} Belum Foto
                 </span>
               </div>
             </div>
@@ -388,7 +392,7 @@ Alamat Email: ${student.email}`;
                   href="https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] text-slate-800 rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px]"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] text-slate-800 rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px] cursor-pointer"
                 >
                   <Folder className="w-4 h-4 text-amber-500 shrink-0" />
                   <span className="truncate">Drive Folder Tugas</span>
@@ -463,7 +467,7 @@ Alamat Email: ${student.email}`;
                     href="https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white border border-slate-200 rounded-xl transition-all shadow-2xs whitespace-nowrap"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white border border-slate-200 rounded-xl transition-all shadow-2xs whitespace-nowrap cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>Buka Drive Folder</span>
@@ -558,7 +562,7 @@ Alamat Email: ${student.email}`;
                 href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px]"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px] cursor-pointer"
               >
                 <WhatsAppIcon className="w-4 h-4 shrink-0" />
                 <span className="truncate">WhatsApp</span>
@@ -576,7 +580,7 @@ Alamat Email: ${student.email}`;
               <a
                 id="btn-detail-email"
                 href={`mailto:${student.email}`}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 rounded-xl text-xs font-semibold transition-all w-full min-h-[42px] border border-slate-200/60"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 rounded-xl text-xs font-semibold transition-all w-full min-h-[42px] border border-slate-200/60 cursor-pointer"
               >
                 <Mail className="w-4 h-4 text-slate-600 shrink-0" />
                 <span className="truncate">Kirim Email</span>
@@ -824,7 +828,7 @@ Alamat Email: ${student.email}`;
                   href={waUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
                 >
                   <WhatsAppIcon className="w-3 h-3" />
                   <span>Buka Chat</span>
