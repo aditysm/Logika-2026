@@ -531,9 +531,8 @@ export function subscribeToSupabaseRealtime(
         if (status === 'SUBSCRIBED') {
           // Connected successfully
         } else if (status === 'CHANNEL_ERROR') {
-          // CHANNEL_ERROR occurs when postgres_changes replication is disabled on the Supabase project
-          // Handled gracefully without throwing fatal errors
-          console.warn('Real-time updates channel status:', status, err?.message || '');
+          // Realtime replication might be disabled in Supabase dashboard. 
+          // Silencing the warning to keep the console clean as we use polling fallback.
         } else if (status === 'TIMED_OUT') {
           console.warn('Real-time connection timed out, fallback polling active.');
         }

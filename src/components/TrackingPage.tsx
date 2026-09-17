@@ -148,7 +148,7 @@ export function TrackingPage({
           <div className="bg-blue-600 text-white px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-200">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span className="text-[10px] font-black uppercase tracking-wider">
-              {students.filter(s => s.nim !== currentUser?.nim && isUploaded(s.nim)).length} / {students.length - 1}
+              {Object.values(trackingMap).filter(v => v).length} / {students.length - 1}
             </span>
           </div>
         </div>

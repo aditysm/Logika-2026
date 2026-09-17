@@ -381,7 +381,12 @@ export function generateNextFileName(
 
   const seq = uploaderPhotos.length + 1;
   const cleanNim = target.nim.replace(/[\/\s]/g, '-');
-  const fileName = `${seq}. ${target.namaLengkap}_${cleanNim}.jpg`;
+  
+  // Extract group ID from kelompok string (e.g. "Kelompok 1" -> "1")
+  const groupIdMatch = target.kelompok?.match(/\d+/);
+  const groupId = groupIdMatch ? groupIdMatch[0] : '0';
+  
+  const fileName = `${groupId}_${target.namaLengkap}_${cleanNim}.jpg`;
 
   return { seq, fileName };
 }

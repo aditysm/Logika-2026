@@ -86,39 +86,7 @@ export function LoginPage({
     : students;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
-      {/* Top Header Bar */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 py-3.5 px-4 sm:px-6">
-        <div className="max-w-6xl w-full mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-sm shadow-xs">
-              L
-            </div>
-            <div>
-              <span className="text-sm font-bold text-slate-800 tracking-tight block leading-tight">
-                Logika 2026
-              </span>
-              <span className="text-[11px] text-slate-400 hidden sm:block">
-                Autentikasi Mahasiswa
-              </span>
-            </div>
-          </div>
-
-          {/* Tanpa Akun Button */}
-          <button
-            id="btn-login-tanpa-akun"
-            type="button"
-            disabled={isLoading}
-            onClick={onContinueWithoutAccount}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-blue-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Lanjut ke pencarian direktori tanpa login"
-          >
-            <span>Tanpa Akun</span>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-          </button>
-        </div>
-      </header>
-
+    <div className="flex-1 flex flex-col">
       {/* Main Centered Minimal Card */}
       <main className="w-full max-w-md mx-auto my-auto px-4 py-8 relative">
         {/* Floating Toast Error Notification */}
@@ -384,15 +352,6 @@ export function LoginPage({
           </div>
         )}
       </AnimatePresence>
-
-      {/* Footer matching the search view */}
-      <footer className="mt-auto border-t border-slate-200 bg-white/80 py-6 text-center text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto px-4 flex items-center justify-center text-center">
-          <p className="font-medium text-slate-600">
-            Data Peserta Logika 2026 &bull; Powered by <span className="font-bold text-slate-800">Dity Store</span>
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

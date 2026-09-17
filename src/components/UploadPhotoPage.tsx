@@ -314,7 +314,7 @@ export function UploadPhotoPage({
                 Identitas Pengisi
               </span>
               <span className="text-[11px] bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-bold">
-                Foto Ke-{seq}
+                Foto Kelompok {targetStudent.kelompok?.match(/\d+/)?.[0] || '0'}
               </span>
             </div>
 
@@ -325,6 +325,7 @@ export function UploadPhotoPage({
                   Mahasiswa (Anda)
                 </span>
                 <p className="font-bold text-slate-900 text-sm truncate">{currentUser.namaLengkap}</p>
+                <p className="text-[10px] font-black text-blue-600 uppercase mb-0.5">{currentUser.kelompok}</p>
                 <p className="font-mono text-xs text-slate-500 truncate">{currentUser.nim}</p>
               </div>
 
@@ -334,6 +335,7 @@ export function UploadPhotoPage({
                   Teman Dituju
                 </span>
                 <p className="font-bold text-blue-950 text-sm truncate">{targetStudent.namaLengkap}</p>
+                <p className="text-[10px] font-black text-blue-700 uppercase mb-0.5">{targetStudent.kelompok}</p>
                 <p className="font-mono text-xs text-blue-800 truncate">{targetStudent.nim}</p>
               </div>
             </div>

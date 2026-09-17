@@ -637,6 +637,8 @@ export default function App() {
         onOpenLogin={handleOpenLogin}
         onOpenPremiumModal={handleOpenPricing}
         onOpenTracking={handleOpenTracking}
+        isLoginPage={location.pathname === '/login'}
+        onContinueWithoutAccount={handleContinueWithoutAccount}
       />
 
       {/* Main Content Area */}
@@ -753,7 +755,7 @@ export default function App() {
                     />
                   </motion.div>
                 ) : (
-                  <Navigate to="/" replace />
+                  <Navigate to="/login" replace />
                 )
               }
             />
@@ -783,40 +785,48 @@ export default function App() {
             <Route
               path="/pricing"
               element={
-                <motion.div
-                  key="pricing-page"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -12 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                >
-                  <PricingPage
-                    currentUser={currentUser}
-                    refreshKey={refreshKey}
-                    onBack={handleClosePricing}
-                    onRefreshProfileStatus={() => loadData({ force: true })}
-                  />
-                </motion.div>
+                currentUser ? (
+                  <motion.div
+                    key="pricing-page"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                  >
+                    <PricingPage
+                      currentUser={currentUser}
+                      refreshKey={refreshKey}
+                      onBack={handleClosePricing}
+                      onRefreshProfileStatus={() => loadData({ force: true })}
+                    />
+                  </motion.div>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
               }
             />
             <Route
               path="/tracking"
               element={
-                <motion.div
-                  key="tracking-page"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -12 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                >
-                  <TrackingPage
-                    currentUser={currentUser}
-                    students={students}
-                    photoRecords={photoRecords}
-                    refreshKey={refreshKey}
-                    onBack={handleCloseTracking}
-                  />
-                </motion.div>
+                currentUser ? (
+                  <motion.div
+                    key="tracking-page"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                  >
+                    <TrackingPage
+                      currentUser={currentUser}
+                      students={students}
+                      photoRecords={photoRecords}
+                      refreshKey={refreshKey}
+                      onBack={handleCloseTracking}
+                    />
+                  </motion.div>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
               }
             />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -826,7 +836,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-200 bg-white/80 py-6 text-center text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-1.5 text-center">
+        <div className="w-full px-4 flex flex-col items-center justify-center gap-1.5 text-center">
           <p className="font-medium text-slate-600">
             Data Peserta Logika 2026 &bull; Powered by{' '}
             <a

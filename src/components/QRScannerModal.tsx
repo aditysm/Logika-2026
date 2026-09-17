@@ -256,7 +256,7 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                     </div>
 
                     {/* Instruction Bottom Bar */}
-                    <div className="absolute bottom-0 left-0 right-0 p-8 z-30 flex flex-col items-center gap-6 pointer-events-none">
+                    <div className="absolute bottom-16 left-0 right-0 p-8 z-30 flex flex-col items-center gap-6 pointer-events-none">
                       <motion.div 
                         initial={{ y: 20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
@@ -269,8 +269,6 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                           Arahkan kamera ke QR Code teman untuk pencarian instan
                         </p>
                       </motion.div>
-
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                     </div>
                   </>
                 )}
@@ -279,26 +277,28 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
           </div>
 
           {/* Toggle Button Container */}
-          <div className="absolute bottom-6 left-0 right-0 z-40 flex justify-center px-6">
-            <button
-              onClick={() => setIsShowingOwnQr(!isShowingOwnQr)}
-              className="group flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95"
-            >
-              <div className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 rounded-2xl text-white transition-all">
-                {isShowingOwnQr ? (
-                  <>
-                    <Scan className="w-4 h-4" />
-                    <span className="text-xs font-bold underline underline-offset-4 decoration-white/40">Scan QR Teman</span>
-                  </>
-                ) : (
-                  <>
-                    <UserCircle className="w-4 h-4" />
-                    <span className="text-xs font-bold underline underline-offset-4 decoration-white/40">Tampilkan QR Saya</span>
-                  </>
-                )}
-              </div>
-            </button>
-          </div>
+          {currentUser && (
+            <div className="absolute bottom-6 left-0 right-0 z-40 flex justify-center px-6">
+              <button
+                onClick={() => setIsShowingOwnQr(!isShowingOwnQr)}
+                className="group flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95"
+              >
+                <div className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 rounded-2xl text-white transition-all">
+                  {isShowingOwnQr ? (
+                    <>
+                      <Scan className="w-4 h-4" />
+                      <span className="text-xs font-bold underline underline-offset-4 decoration-white/40">Scan QR Teman</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCircle className="w-4 h-4" />
+                      <span className="text-xs font-bold underline underline-offset-4 decoration-white/40">Tampilkan QR Saya</span>
+                    </>
+                  )}
+                </div>
+              </button>
+            </div>
+          )}
         </motion.div>
       </div>
     </AnimatePresence>,
