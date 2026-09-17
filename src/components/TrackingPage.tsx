@@ -44,9 +44,14 @@ export function TrackingPage({
   const loadTracking = async (showSkeleton = false) => {
     if (!userKey) return;
     if (showSkeleton) setIsLoading(true);
-    const data = await fetchPhotoTrackingFromSupabase(userKey);
-    setTrackingMap(data);
-    if (showSkeleton) setIsLoading(false);
+    try {
+      const data = await fetchPhotoTrackingFromSupabase(userKey);
+      setTrackingMap(data);
+    } catch (err) {
+      console.error("Error loading tracking:", err);
+    } finally {
+      if (showSkeleton) setIsLoading(false);
+    }
   };
 
   // Initial load
@@ -143,7 +148,7 @@ export function TrackingPage({
           <div className="bg-blue-600 text-white px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-200">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span className="text-[10px] font-black uppercase tracking-wider">
-              {Object.values(trackingMap).filter(v => v).length} / {students.length - 1}
+              {students.filter(s => s.nim !== currentUser?.nim && isUploaded(s.nim)).length} / {students.length - 1}
             </span>
           </div>
         </div>
@@ -207,7 +212,7 @@ export function TrackingPage({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       onClick={() => !isMe && handleToggle(student.nim, checked)}
-                      className={`flex items-center gap-3 p-3.5 transition-all active:scale-[0.99] active:bg-slate-100 select-none ${
+                      className={`flex items-center gap-3 p-3.5 transition-all active:scale-[0.99] active:bg-slate-100 select-none border-b border-slate-50 last:border-0 ${
                         isMe ? 'bg-blue-50/50' : 'hover:bg-slate-50/50 cursor-pointer'
                       }`}
                     >
@@ -277,18 +282,18 @@ export function TrackingPage({
               <div className="w-5 h-5 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm">
                 <CheckCircle2 className="w-3 h-3" />
               </div>
-              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Sudah Foto</span>
+              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Tanda Checklist</span>
             </div>
             <div className="flex items-center gap-2.5">
               <div className="w-5 h-5 bg-emerald-500 rounded-lg flex items-center justify-center text-white shadow-sm">
                 <Camera className="w-3 h-3" />
               </div>
-              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">File Terupload</span>
+              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Status Upload</span>
             </div>
           </div>
           <div className="hidden sm:block text-right">
              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Status Progres</p>
-             <p className="text-[10px] font-black text-slate-900 uppercase">Sinkron Otomatis</p>
+             <p className="text-[10px] font-black text-slate-900 uppercase">Foto = Progres</p>
           </div>
         </div>
       </div>

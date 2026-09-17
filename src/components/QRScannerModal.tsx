@@ -68,7 +68,6 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
 
         const config = { 
           fps: 15, 
-          qrbox: { width: 250, height: 250 },
           aspectRatio: 1.0
         };
 
@@ -154,8 +153,8 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                 <QrCode className="w-6 h-6" />
               </div>
               <div className="hidden xs:block">
-                <h3 className="text-sm font-black text-white uppercase tracking-wider">Scanner</h3>
-                <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Google Lens Mode</p>
+                <h3 className="text-sm font-bold text-white">Scanner</h3>
+                <p className="text-[10px] text-white/50">Google Lens Mode</p>
               </div>
             </div>
             <button
@@ -191,8 +190,8 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                   />
                 </motion.div>
                 <div className="mt-8 text-center">
-                  <h4 className="text-lg font-black text-white uppercase tracking-tight mb-2">QR Profil Saya</h4>
-                  <p className="text-xs text-slate-400 font-bold max-w-[200px] mx-auto uppercase tracking-wider leading-relaxed">
+                  <h4 className="text-lg font-bold text-white mb-2">QR Profil Saya</h4>
+                  <p className="text-xs text-slate-400 max-w-[200px] mx-auto leading-relaxed">
                     Tunjukkan ini ke teman untuk mempermudah pencarian profil Anda
                   </p>
                 </div>
@@ -202,7 +201,7 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                 {isInitializing && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-20">
                     <RefreshCw className="w-10 h-10 animate-spin text-blue-500 mb-4" />
-                    <p className="text-xs font-black uppercase tracking-widest text-white/60">Memuat Kamera...</p>
+                    <p className="text-xs text-white/60">Memuat Kamera...</p>
                   </div>
                 )}
 
@@ -211,21 +210,21 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                     <div className="w-20 h-20 rounded-[2rem] bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mb-6">
                       <AlertCircle className="w-10 h-10" />
                     </div>
-                    <h4 className="text-xl font-black mb-3 uppercase tracking-tight">Butuh Akses</h4>
+                    <h4 className="text-xl font-bold mb-3">Butuh Akses</h4>
                     <p className="text-sm text-slate-400 mb-8 leading-relaxed max-w-xs mx-auto">
                       {error.message}
                     </p>
                     <div className="flex flex-col w-full max-w-xs gap-3">
                       <button
                         onClick={handleRetry}
-                        className="flex items-center justify-center gap-3 px-8 py-4 bg-white text-slate-950 font-black rounded-2xl text-sm transition-all shadow-xl active:scale-95"
+                        className="flex items-center justify-center gap-3 px-8 py-4 bg-white text-slate-950 font-bold rounded-2xl text-sm transition-all shadow-xl active:scale-95 cursor-pointer"
                       >
                         <RefreshCw className="w-5 h-5" />
                         <span>Coba Lagi</span>
                       </button>
                       <button
                         onClick={onClose}
-                        className="px-8 py-4 bg-white/5 text-white/60 font-black rounded-2xl text-sm transition-all border border-white/10 active:scale-95"
+                        className="px-8 py-4 bg-white/5 text-white/60 font-bold rounded-2xl text-sm transition-all border border-white/10 active:scale-95 cursor-pointer"
                       >
                         Tutup
                       </button>
@@ -266,7 +265,7 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                         <div className="w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
                           <Info className="w-4 h-4" />
                         </div>
-                        <p className="text-[11px] text-white font-bold leading-tight uppercase tracking-tight">
+                        <p className="text-[11px] text-white leading-tight">
                           Arahkan kamera ke QR Code teman untuk pencarian instan
                         </p>
                       </motion.div>
@@ -289,12 +288,12 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                 {isShowingOwnQr ? (
                   <>
                     <Scan className="w-4 h-4" />
-                    <span className="text-xs font-black uppercase tracking-widest underline decoration-blue-500 underline-offset-4">Scan QR Teman</span>
+                    <span className="text-xs font-bold underline underline-offset-4 decoration-white/40">Scan QR Teman</span>
                   </>
                 ) : (
                   <>
                     <UserCircle className="w-4 h-4" />
-                    <span className="text-xs font-black uppercase tracking-widest underline decoration-blue-500 underline-offset-4">Tampilkan QR Saya</span>
+                    <span className="text-xs font-bold underline underline-offset-4 decoration-white/40">Tampilkan QR Saya</span>
                   </>
                 )}
               </div>

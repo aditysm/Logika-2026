@@ -32,6 +32,7 @@ import {
   UserCheck,
   Sparkles,
   FileDown,
+  RefreshCw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
@@ -303,8 +304,8 @@ Alamat Email: ${student.email}`;
 
             {/* Basic Info */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-slate-500 pt-1">
-              <div className="flex items-start gap-3 group">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="flex items-center gap-3 group bg-slate-50/50 p-3 rounded-2xl border border-slate-100 hover:border-blue-100 transition-all">
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
                   <IdCard className="w-5 h-5 text-blue-500" />
                 </div>
                 <div className="min-w-0">
@@ -313,13 +314,13 @@ Alamat Email: ${student.email}`;
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 group">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="flex items-center gap-3 group bg-slate-50/50 p-3 rounded-2xl border border-slate-100 hover:border-rose-100 transition-all">
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
                   <MapPin className="w-5 h-5 text-rose-500" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Asal Daerah</p>
-                  <p className="font-bold text-slate-700 leading-tight">{student.asalRumah}</p>
+                  <p className="font-bold text-slate-700 leading-tight truncate">{student.asalRumah}</p>
                 </div>
               </div>
             </div>
@@ -701,35 +702,48 @@ Alamat Email: ${student.email}`;
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 {currentUser && !isOwnProfile && (
-                  <motion.button
+                  <button
                     type="button"
-                    whileTap={{ scale: 0.95 }}
                     onClick={handleToggleTracking}
                     disabled={isTrackingLoading}
-                    className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-xs font-bold transition-all shadow-sm cursor-pointer border-2 relative overflow-hidden group ${
+                    className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-xs font-bold transition-all shadow-sm cursor-pointer border-2 relative overflow-hidden group min-w-[160px] ${
                       isCheckedInTracking 
                         ? 'bg-emerald-600 border-emerald-500 text-white' 
                         : 'bg-white border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600'
                     }`}
                   >
-                    <motion.div
-                      initial={false}
-                      animate={{ scale: isCheckedInTracking ? [1, 1.2, 1] : 1 }}
-                      transition={{ duration: 0.4 }}
-                      className="flex items-center gap-2"
-                    >
-                      {isCheckedInTracking ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Selesai Foto</span>
-                        </>
+                    <AnimatePresence mode="wait">
+                      {isTrackingLoading ? (
+                        <motion.div
+                          key="loading"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                        >
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        </motion.div>
                       ) : (
-                        <>
-                          <Circle className="w-4 h-4" />
-                          <span>Tandai Selesai</span>
-                        </>
+                        <motion.div
+                          key={isCheckedInTracking ? 'checked' : 'unchecked'}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="flex items-center gap-2"
+                        >
+                          {isCheckedInTracking ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Selesai Foto</span>
+                            </>
+                          ) : (
+                            <>
+                              <Circle className="w-4 h-4" />
+                              <span>Tandai Selesai</span>
+                            </>
+                          )}
+                        </motion.div>
                       )}
-                    </motion.div>
+                    </AnimatePresence>
                     
                     {/* Ripple visual effect simulation */}
                     <motion.div
@@ -741,7 +755,7 @@ Alamat Email: ${student.email}`;
                         transition: { duration: 0.5 }
                       }}
                     />
-                  </motion.button>
+                  </button>
                 )}
                 <button
                   type="button"
