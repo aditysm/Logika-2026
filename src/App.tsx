@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Navbar } from './components/Navbar';
 import { LoginPage } from './components/LoginPage';
@@ -17,6 +17,7 @@ import { PhotoViewerModal } from './components/PhotoViewerModal';
 import { LogoutConfirmModal } from './components/LogoutConfirmModal';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { PricingPage } from './components/PricingPage';
+import { TrackingPage } from './components/TrackingPage';
 import { generateStudentReport } from './lib/reportGenerator';
 import { ConnectionStatus, Mahasiswa, PhotoRecord } from './types';
 import {
@@ -68,6 +69,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState<boolean>(false);
   const [isPricingView, setIsPricingView] = useState<boolean>(false);
+  const [isTrackingView, setIsTrackingView] = useState<boolean>(false);
 
   // Track search page scroll position to restore upon returning
   const searchScrollPosRef = useRef<number>(0);
@@ -112,12 +114,12 @@ export default function App() {
 
   const [refreshKey, setRefreshKey] = useState<number>(0);
 
-  const loadData = async (force = false) => {
-    setIsLoading(true);
+  const loadData = useCallback(async (options: { force?: boolean; silent?: boolean } = {}) => {
+    const { force = false, silent = false } = options;
+    if (!silent) setIsLoading(true);
     try {
       if (force) {
         clearProfileOverrides();
-        // Also clear memory photo cache to force remote fetch
         setMemoryPhotoRecords([]);
       }
 
@@ -126,16 +128,6 @@ export default function App() {
       const enhancedStudents = applyProfileOverrides(result.data);
 
       setStudents(enhancedStudents);
-      
-      // Update selectedStudent if it exists to point to the fresh data
-      if (selectedStudent) {
-        const freshStudent = enhancedStudents.find(
-          (s) => s.id === selectedStudent.id || (s.nim && s.nim === selectedStudent.nim)
-        );
-        if (freshStudent) {
-          setSelectedStudent(freshStudent);
-        }
-      }
 
       setConnectionStatus({
         isConnected: result.isRealData,
@@ -161,7 +153,20 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Update selectedStudent if it exists to point to the fresh data when students array changes
+  useEffect(() => {
+    if (students.length > 0 && selectedStudent) {
+      const freshStudent = students.find(
+        (s) => s.id === selectedStudent.id || (s.nim && s.nim === selectedStudent.nim)
+      );
+      // Only update if we found a match and it's actually a different object reference
+      if (freshStudent && freshStudent !== selectedStudent) {
+        setSelectedStudent(freshStudent);
+      }
+    }
+  }, [students, selectedStudent]);
 
   useEffect(() => {
     loadData();
@@ -171,12 +176,8 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = subscribeToSupabaseRealtime(
       () => {
-        // Profiles changed remotely
-        fetchStudentsFromSupabase().then((res) => {
-          if (res.data && res.data.length > 0) {
-            setStudents((currentStudents) => applyProfileOverrides(res.data));
-          }
-        });
+        // Profiles changed remotely - refresh silently
+        loadData({ silent: true });
       },
       () => {
         // Photo logs changed remotely
@@ -191,13 +192,17 @@ export default function App() {
         });
       },
       () => {
-        // Payment logs changed remotely
-        loadData();
+        // Payment logs changed remotely - refresh silently
+        loadData({ silent: true });
+      },
+      () => {
+        // Photo tracking changed remotely - increment refreshKey to trigger re-fetch in TrackingPage
+        setRefreshKey(prev => prev + 1);
       }
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [loadData]);
 
   // Helper to extract student ID or NIM from URL (hash, search params, or pathname)
   const getRequestedStudentIdFromUrl = (): string | null => {
@@ -267,8 +272,6 @@ export default function App() {
   const [isLoginView, setIsLoginView] = useState<boolean>(() => isLoginPathOrHash());
 
   useEffect(() => {
-    loadData();
-
     // Check if initial route has return params for upload
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
@@ -475,6 +478,24 @@ export default function App() {
 
   const handleClosePricing = () => {
     setIsPricingView(false);
+    window.history.pushState({ view: 'list' }, '', window.location.pathname);
+  };
+
+  const handleOpenTracking = () => {
+    setIsTrackingView(true);
+    setIsPricingView(false);
+    setSelectedStudent(null);
+    setUploadTargetStudent(null);
+    setIsEditProfileView(false);
+    setIsLoginView(false);
+    window.history.pushState({ view: 'tracking' }, '', '#/tracking');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  };
+
+  const handleCloseTracking = () => {
+    setIsTrackingView(false);
     window.history.pushState({ view: 'list' }, '', window.location.pathname);
   };
 
@@ -787,15 +808,10 @@ export default function App() {
     );
   }, [students]);
 
-  // Directory students excluding logged-in user
+  // Directory students including everyone (logged-in user now shown)
   const directoryStudents = useMemo(() => {
-    return students.filter((student) => {
-      if (currentUser && normalizeNim(student.nim) === normalizeNim(currentUser.nim)) {
-        return false;
-      }
-      return true;
-    });
-  }, [students, currentUser]);
+    return students;
+  }, [students]);
 
   // Filter & Search
   const filteredStudents = useMemo(() => {
@@ -947,7 +963,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-slate-50 pt-16">
       {/* Top Fixed Navigation */}
       <Navbar
-        onRefresh={() => loadData(true)}
+        onRefresh={() => loadData({ force: true })}
         isLoading={isLoading}
         totalStudents={currentUser ? Math.max(0, students.length - 1) : students.length}
         onGoHome={handleGoHomeLogo}
@@ -957,6 +973,7 @@ export default function App() {
         onLogout={() => setIsLogoutModalOpen(true)}
         onOpenLogin={handleOpenLogin}
         onOpenPremiumModal={handleOpenPricing}
+        onOpenTracking={handleOpenTracking}
       />
 
       {/* Main Content Area */}
@@ -1022,13 +1039,30 @@ export default function App() {
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
             >
-              <PricingPage
+            <PricingPage
+              currentUser={currentUser}
+              refreshKey={refreshKey}
+              onBack={handleClosePricing}
+              onRefreshProfileStatus={async () => {
+                await loadData({ force: true });
+              }}
+            />
+            </motion.div>
+          ) : isTrackingView ? (
+            /* Dedicated Photo Tracking Page */
+            <motion.div
+              key="tracking-page"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+            >
+              <TrackingPage
                 currentUser={currentUser}
+                students={students}
+                photoRecords={photoRecords}
                 refreshKey={refreshKey}
-                onBack={handleClosePricing}
-                onRefreshProfileStatus={async () => {
-                  await loadData();
-                }}
+                onBack={handleCloseTracking}
               />
             </motion.div>
           ) : selectedStudent ? (
@@ -1105,6 +1139,7 @@ export default function App() {
 
                   {/* Interactive Search Bar & Group Filter */}
                   <SearchBar
+                    currentUser={currentUser}
                     searchQuery={searchQuery}
                     onSearchChange={(q) => {
                       setSearchQuery(q);
@@ -1162,29 +1197,36 @@ export default function App() {
                   /* Student Cards Grid & Pagination */
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {paginatedStudents.map((student) => (
-                        <StudentCard
-                          key={student.id}
-                          student={student}
-                          onSelect={(mhs) => handleSelectStudent(mhs)}
-                          currentUser={currentUser}
-                          isPhotoTaken={
-                            currentUser
-                              ? hasTakenPhoto(photoRecords, currentUser.nim, student.nim)
-                              : false
-                          }
-                          onOpenUploadModal={(target) => {
-                            handleOpenUploadPhoto(target);
-                          }}
-                        />
-                      ))}
+                      {paginatedStudents.map((student, idx) => {
+                        const globalIndex = (currentPage - 1) * itemsPerPage + idx + 1;
+                        return (
+                          <StudentCard
+                            key={student.id}
+                            student={student}
+                            onSelect={(mhs) => handleSelectStudent(mhs)}
+                            currentUser={currentUser}
+                            isPhotoTaken={
+                              currentUser
+                                ? hasTakenPhoto(photoRecords, currentUser.nim, student.nim)
+                                : false
+                            }
+                            onOpenUploadModal={(target) => {
+                              handleOpenUploadPhoto(target);
+                            }}
+                            index={globalIndex}
+                            showIndex={selectedGroup !== 'ALL'}
+                          />
+                        );
+                      })}
                     </div>
 
                     {/* Pagination Controls */}
                     {totalPages > 1 && (
                       <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs">
                         <div className="text-xs sm:text-sm text-slate-600">
-                          Menampilkan <span className="font-bold text-slate-900">{sortedStudents.length}</span> mahasiswa
+                          Menampilkan <span className="font-bold text-slate-900">
+                            {Math.min(sortedStudents.length, currentPage * itemsPerPage)}
+                          </span> dari <span className="font-bold text-slate-900">{sortedStudents.length}</span> mahasiswa
                         </div>
 
                         <div className="flex items-center gap-1.5 flex-wrap justify-center">
@@ -1203,18 +1245,22 @@ export default function App() {
                           </button>
 
                           <div className="flex items-center gap-1 px-2">
-                            {Array.from({ length: totalPages }, (_, i) => i + 1)
-                              .filter((num) => {
-                                return num === 1 || num === totalPages || Math.abs(num - currentPage) <= 1;
-                              })
-                              .map((num, idx, arr) => {
-                                const prevNum = arr[idx - 1];
-                                const showEllipsis = prevNum && num - prevNum > 1;
+                            {(() => {
+                              const pages = [];
+                              const blockSize = 3;
+                              const currentBlock = Math.floor((currentPage - 1) / blockSize);
+                              const startPage = currentBlock * blockSize + 1;
+                              const endPage = Math.min(startPage + blockSize - 1, totalPages);
 
-                                return (
-                                  <div key={num} className="flex items-center gap-1">
-                                    {showEllipsis && <span className="text-slate-400 px-1">...</span>}
+                              for (let i = startPage; i <= endPage; i++) {
+                                pages.push(i);
+                              }
+                              
+                              return (
+                                <>
+                                  {pages.map((num) => (
                                     <button
+                                      key={num}
                                       type="button"
                                       onClick={() => {
                                         setCurrentPage(num);
@@ -1229,9 +1275,31 @@ export default function App() {
                                     >
                                       {num}
                                     </button>
-                                  </div>
-                                );
-                              })}
+                                  ))}
+                                  {endPage < totalPages && (
+                                    <>
+                                      <span className="text-slate-400 px-1">...</span>
+                                      <button
+                                        key={totalPages}
+                                        type="button"
+                                        onClick={() => {
+                                          setCurrentPage(totalPages);
+                                          const el = document.getElementById('section-pencarian-mahasiswa');
+                                          if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' });
+                                        }}
+                                        className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                                          currentPage === totalPages
+                                            ? 'bg-blue-600 text-white shadow-xs'
+                                            : 'border border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        {totalPages}
+                                      </button>
+                                    </>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
 
                           <button
@@ -1318,7 +1386,15 @@ export default function App() {
       <footer className="mt-auto border-t border-slate-200 bg-white/80 py-6 text-center text-xs text-slate-500">
         <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-1.5 text-center">
           <p className="font-medium text-slate-600">
-            Data Peserta Logika 2026 &bull; Powered by <span className="font-bold text-slate-800">Dity Store</span>
+            Data Peserta Logika 2026 &bull; Powered by{' '}
+            <a
+              href="https://www.instagram.com/dity.storee"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-slate-800 underline hover:text-blue-600 transition-colors"
+            >
+              Dity Store
+            </a>
           </p>
         </div>
       </footer>

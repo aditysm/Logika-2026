@@ -5,6 +5,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  Circle,
   ChevronLeft,
   ChevronRight,
   Compass,
@@ -34,7 +35,12 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
-import { formatWhatsAppUrl, formatPhoneDisplay } from '../lib/supabase';
+import { 
+  formatWhatsAppUrl, 
+  formatPhoneDisplay, 
+  fetchPhotoTrackingFromSupabase,
+  upsertPhotoTrackingInSupabase 
+} from '../lib/supabase';
 import { formatIndonesianDate, hasTakenPhoto } from '../lib/photoStorage';
 import { WhatsAppIcon } from './WhatsAppIcon';
 
@@ -74,6 +80,11 @@ export function StudentDetailView({
   const [shareSuccess, setShareSuccess] = useState(false);
 
   const [showQr, setShowQr] = useState(false);
+  const [isCheckedInTracking, setIsCheckedInTracking] = useState(false);
+  const [isTrackingLoading, setIsTrackingLoading] = useState(false);
+
+  // Get current user NIM - matching new schema where user_id references profiles.nim
+  const userKey = currentUser?.nim;
 
   // Determine if viewing own user profile
   const isOwnProfile = Boolean(
@@ -88,7 +99,18 @@ export function StudentDetailView({
     window.scrollTo({ top: 0, behavior: 'instant' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
-  }, [student.id, student.nim]);
+
+    // Load tracking status
+    const loadTrackingStatus = async () => {
+      if (userKey && student.nim) {
+        setIsTrackingLoading(true);
+        const data = await fetchPhotoTrackingFromSupabase(userKey);
+        setIsCheckedInTracking(!!data[student.nim]);
+        setIsTrackingLoading(false);
+      }
+    };
+    loadTrackingStatus();
+  }, [student.id, student.nim, userKey]);
 
   // Find index for Prev / Next navigation
   const currentIndex = allStudents.findIndex((s) => s.id === student.id);
@@ -159,6 +181,19 @@ Alamat Email: ${student.email}`;
     setTimeout(() => setShareSuccess(false), 2500);
   };
 
+  const handleToggleTracking = async () => {
+    if (!userKey || isOwnProfile) return;
+    
+    setIsTrackingLoading(true);
+    const newState = !isCheckedInTracking;
+    const success = await upsertPhotoTrackingInSupabase(userKey, student.nim, newState);
+    
+    if (success) {
+      setIsCheckedInTracking(newState);
+    }
+    setIsTrackingLoading(false);
+  };
+
   const handleNavigate = (targetStudent: Mahasiswa) => {
     onSelectStudent(targetStudent);
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -190,81 +225,75 @@ Alamat Email: ${student.email}`;
       className="w-full space-y-6"
     >
       {/* Top Action & Breadcrumb Bar */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+      <div className="flex items-center justify-between pb-1">
         <button
           id="btn-back-to-list"
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors group cursor-pointer"
+          className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-blue-600 transition-all group cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 group-hover:border-blue-300 flex items-center justify-center transition-colors shadow-xs">
-            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-slate-600 group-hover:text-blue-600" />
+          <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 group-hover:border-blue-300 flex items-center justify-center transition-all shadow-2xs group-active:scale-95">
+            <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" />
           </div>
-          <span>{backButtonText}</span>
+          <span>Kembali</span>
         </button>
+
+        {isOwnProfile && (
+          <button
+            onClick={onEditProfile}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100 text-xs font-bold transition-all active:scale-95"
+          >
+            <Edit3 className="w-4 h-4" />
+            <span>Edit Profil</span>
+          </button>
+        )}
       </div>
 
-      {/* Hero Profile Header (without initial avatar box as requested) */}
-      <section className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-xs font-semibold h-7">
-                <Users className="w-3.5 h-3.5 text-blue-500" />
-                <span>{student.kelompok}</span>
+      {/* Hero Profile Header */}
+      <section className="bg-white border border-slate-200 rounded-3xl shadow-xs relative overflow-hidden">
+        <div className="p-6 sm:p-8 space-y-6">
+          <div className="space-y-4">
+            {/* Status Chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 text-[11px] font-bold uppercase tracking-wider">
+                <Users className="w-3.5 h-3.5" />
+                {student.kelompok}
               </span>
+              
               {student.namaPanggilan && student.namaPanggilan !== '-' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium h-7">
-                  <Tag className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Sapaan: {student.namaPanggilan}</span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold uppercase tracking-wider">
+                  <Tag className="w-3.5 h-3.5 text-slate-500" />
+                  Sapaan: {student.namaPanggilan}
                 </span>
               )}
-              {isOwnProfile && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold h-7">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Profil Saya</span>
+
+              {student.isLeader && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold uppercase tracking-wider shadow-2xs">
+                  <Crown className="w-3.5 h-3.5 text-amber-600 fill-amber-300" />
+                  Ketua Kelompok
                 </span>
               )}
+
               {isOwnProfile && (
-                (() => {
-                  const activeTier = currentUser?.tier || student.tier || 'free';
-                  if (activeTier === 'pro') {
-                    return (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-semibold h-7 shadow-2xs">
-                        <Crown className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Tier: Pro</span>
-                      </span>
-                    );
-                  }
-                  if (activeTier === 'basic') {
-                    return (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-semibold h-7 shadow-2xs">
-                        <FolderCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Tier: Basic</span>
-                      </span>
-                    );
-                  }
-                  return (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold h-7 shadow-2xs">
-                      <User className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Tier: Free</span>
-                    </span>
-                  );
-                })()
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 text-[11px] font-bold uppercase tracking-wider">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Profil Saya
+                </span>
               )}
             </div>
 
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            {/* Name and QR Toggle */}
+            <div className="flex items-start justify-between gap-4">
+              <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
                 {student.namaLengkap}
               </h1>
               <button
                 type="button"
                 onClick={() => setShowQr(!showQr)}
-                className={`p-1.5 rounded-lg border transition-all ${
+                className={`p-2.5 rounded-xl border transition-all shrink-0 mt-1 ${
                   showQr 
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
-                    : 'bg-white text-slate-400 hover:text-blue-600 border-slate-200 hover:border-blue-200 shadow-xs'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-110' 
+                    : 'bg-white text-slate-400 hover:text-blue-600 border-slate-200 hover:border-blue-200 shadow-2xs active:scale-95'
                 }`}
                 title="Tampilkan QR Code Profil"
               >
@@ -272,18 +301,30 @@ Alamat Email: ${student.email}`;
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-slate-500">
-              <div className="flex items-center gap-1.5 font-mono font-medium text-slate-700">
-                <IdCard className="w-4 h-4 text-blue-500" />
-                <span>NIM: {student.nim}</span>
+            {/* Basic Info */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-slate-500 pt-1">
+              <div className="flex items-start gap-3 group">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <IdCard className="w-5 h-5 text-blue-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">NIM Mahasiswa</p>
+                  <p className="font-mono font-bold text-slate-700 truncate">{student.nim}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-slate-400" />
-                <span>{student.asalRumah}</span>
+
+              <div className="flex items-start gap-3 group">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPin className="w-5 h-5 text-rose-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Asal Daerah</p>
+                  <p className="font-bold text-slate-700 leading-tight">{student.asalRumah}</p>
+                </div>
               </div>
             </div>
 
-            {/* QR Code Section - Global for all profiles */}
+            {/* QR Code Section */}
             <AnimatePresence>
               {showQr && (
                 <motion.div 
@@ -362,82 +403,45 @@ Alamat Email: ${student.email}`;
             </div>
 
             {/* Action Buttons for Own Profile */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-              {/* 1. Edit Profil Saya */}
-              <button
-                id="btn-detail-edit-profile"
-                type="button"
-                onClick={onEditProfile}
-                className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl text-xs font-bold shadow-xs transition-all w-full min-h-[42px] cursor-pointer"
-                title="Edit data profil Anda"
-              >
-                <Edit3 className="w-4 h-4 shrink-0" />
-                <span className="truncate">Edit Profil Saya</span>
-              </button>
-
-              {/* 2. Google Drive Pribadi */}
-              {(currentUser?.tier || student.tier || 'free') === 'free' ? (
-                <button
-                  type="button"
-                  onClick={onOpenPremiumModal}
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px] cursor-pointer"
-                  title="Upgrade ke Basic untuk membuka Drive Folder Tugas"
-                >
-                  <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="truncate">Drive Terkunci (Free)</span>
-                </button>
-              ) : (
-                <a
-                  id="btn-detail-own-drive"
-                  href="https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] text-slate-800 rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px] cursor-pointer"
-                >
-                  <Folder className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span className="truncate">Drive Folder Tugas</span>
-                  <ExternalLink className="w-3.5 h-3.5 opacity-60 shrink-0 hidden sm:inline" />
-                </a>
-              )}
-
-              {/* 3. Bagikan Profil */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Bagikan Profil */}
               <button
                 id="btn-detail-share-profile"
                 type="button"
                 onClick={handleShareProfile}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px] cursor-pointer"
+                className="inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white rounded-2xl text-sm font-bold shadow-sm transition-all w-full cursor-pointer"
                 title="Bagikan Tautan Profil Saya"
               >
                 {shareSuccess ? (
                   <>
-                    <Check className="w-4 h-4 shrink-0 text-emerald-400" />
-                    <span className="truncate">Tersalin!</span>
+                    <Check className="w-5 h-5 text-emerald-400" />
+                    <span>Tautan Tersalin!</span>
                   </>
                 ) : (
                   <>
-                    <Share2 className="w-4 h-4 shrink-0" />
-                    <span className="truncate">Bagikan Profil</span>
+                    <Share2 className="w-5 h-5" />
+                    <span>Bagikan Profil</span>
                   </>
                 )}
               </button>
 
-              {/* 4. Salin Semua Rincian */}
+              {/* Salin Semua Rincian */}
               <button
                 id="btn-detail-copy-all"
                 type="button"
                 onClick={handleCopyAll}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] text-slate-700 rounded-xl text-xs font-semibold transition-all w-full min-h-[42px] shadow-xs cursor-pointer"
+                className="inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] text-slate-700 rounded-2xl text-sm font-bold transition-all w-full shadow-2xs cursor-pointer"
                 title="Salin Semua Rincian Mahasiswa"
               >
                 {copiedAll ? (
                   <>
-                    <Check className="w-4 h-4 shrink-0 text-emerald-600" />
-                    <span className="truncate text-emerald-600">Tersalin!</span>
+                    <Check className="w-5 h-5 text-emerald-600" />
+                    <span className="text-emerald-600">Data Tersalin!</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-4 h-4 shrink-0 text-slate-500" />
-                    <span className="truncate">Salin Data</span>
+                    <Copy className="w-5 h-5 text-slate-500" />
+                    <span>Salin Seluruh Data</span>
                   </>
                 )}
               </button>
@@ -553,381 +557,413 @@ Alamat Email: ${student.email}`;
             </div>
           </div>
         ) : (
-          /* 4 Action Buttons for Other Students */
-          <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-            {/* 1. Hubungi WhatsApp */}
-            {waUrl ? (
-              <a
-                id="btn-detail-wa"
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px] cursor-pointer"
-              >
-                <WhatsAppIcon className="w-4 h-4 shrink-0" />
-                <span className="truncate">WhatsApp</span>
-                <ExternalLink className="w-3 h-3 opacity-80 shrink-0 hidden sm:inline" />
-              </a>
-            ) : (
-              <div className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-semibold w-full min-h-[42px] cursor-not-allowed">
-                <WhatsAppIcon className="w-4 h-4 shrink-0" />
-                <span>WhatsApp</span>
-              </div>
-            )}
-
-            {/* 2. Kirim Email */}
-            {student.email && student.email !== '-' ? (
-              <a
-                id="btn-detail-email"
-                href={`mailto:${student.email}`}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 rounded-xl text-xs font-semibold transition-all w-full min-h-[42px] border border-slate-200/60 cursor-pointer"
-              >
-                <Mail className="w-4 h-4 text-slate-600 shrink-0" />
-                <span className="truncate">Kirim Email</span>
-              </a>
-            ) : (
-              <div className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-50 text-slate-400 rounded-xl text-xs font-semibold w-full min-h-[42px] border border-slate-100 cursor-not-allowed">
-                <Mail className="w-4 h-4 shrink-0" />
-                <span>Kirim Email</span>
-              </div>
-            )}
-
-            {/* 3. Bagikan Profil */}
-            <button
-              id="btn-detail-share-profile"
-              type="button"
-              onClick={handleShareProfile}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-xs transition-all w-full min-h-[42px]"
-              title="Bagikan Tautan Profil"
-            >
-              {shareSuccess ? (
-                <>
-                  <Check className="w-4 h-4 shrink-0 text-white" />
-                  <span className="truncate">Tersalin!</span>
-                </>
+          <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
+            {/* Action Buttons for Other Students */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* WhatsApp Primary Action */}
+              {waUrl ? (
+                <a
+                  id="btn-detail-wa"
+                  href={waUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-2xl text-sm font-bold shadow-md transition-all w-full cursor-pointer"
+                >
+                  <WhatsAppIcon className="w-5 h-5 shrink-0" />
+                  <span>Hubungi WhatsApp</span>
+                </a>
               ) : (
-                <>
-                  <Share2 className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Bagikan Profil</span>
-                </>
+                <div className="inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-slate-100 text-slate-400 rounded-2xl text-sm font-bold w-full cursor-not-allowed">
+                  <WhatsAppIcon className="w-5 h-5 shrink-0" />
+                  <span>WhatsApp Tidak Tersedia</span>
+                </div>
               )}
-            </button>
 
-            {/* 4. Salin Semua Rincian */}
-            <button
-              id="btn-detail-copy-all"
-              type="button"
-              onClick={handleCopyAll}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] text-slate-700 rounded-xl text-xs font-semibold transition-all w-full min-h-[42px] shadow-xs"
-              title="Salin Semua Rincian Mahasiswa"
-            >
-              {copiedAll ? (
-                <>
-                  <Check className="w-4 h-4 shrink-0 text-emerald-600" />
-                  <span className="truncate text-emerald-600">Tersalin!</span>
-                </>
+              {/* Email Secondary Action */}
+              {student.email && student.email !== '-' ? (
+                <a
+                  id="btn-detail-email"
+                  href={`mailto:${student.email}`}
+                  className="inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] text-slate-800 rounded-2xl text-sm font-bold transition-all w-full shadow-2xs cursor-pointer"
+                >
+                  <Mail className="w-5 h-5 text-slate-600 shrink-0" />
+                  <span>Kirim Email</span>
+                </a>
               ) : (
-                <>
-                  <Copy className="w-4 h-4 shrink-0 text-slate-500" />
-                  <span className="truncate">Salin Semua</span>
-                </>
+                <div className="inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-slate-50 text-slate-400 rounded-2xl text-sm font-bold w-full border border-slate-100 cursor-not-allowed">
+                  <Mail className="w-5 h-5 shrink-0" />
+                  <span>Email Tidak Tersedia</span>
+                </div>
               )}
-            </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Bagikan Profil */}
+              <button
+                id="btn-detail-share-profile"
+                type="button"
+                onClick={handleShareProfile}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+              >
+                {shareSuccess ? (
+                  <>
+                    <Check className="w-4 h-4 text-white" />
+                    <span>Tersalin!</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4" />
+                    <span>Bagikan Profil</span>
+                  </>
+                )}
+              </button>
+
+              {/* Salin Semua */}
+              <button
+                id="btn-detail-copy-all"
+                type="button"
+                onClick={handleCopyAll}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] text-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              >
+                {copiedAll ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span className="text-emerald-600">Tersalin!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 text-slate-500" />
+                    <span>Salin Data</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
       </section>
-
-      {/* Know Each Other: Photo Status & Action Banner (Shown when viewing another student) */}
       {!isOwnProfile && (
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-xs">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm overflow-hidden relative">
+          {/* Decorative Background Icon */}
+          <Camera className="absolute -right-4 -bottom-4 w-32 h-32 text-slate-50 opacity-[0.03] rotate-12" />
+          
           {currentUser && photoRecord ? (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-6 h-6" />
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="flex items-center gap-4 text-center sm:text-left flex-col sm:flex-row">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                  <CheckCircle2 className="w-8 h-8" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-100/50 px-2 py-0.5 rounded-md">
                       Tugas Selesai
                     </span>
-                    <span className="text-xs text-slate-500">{formatIndonesianDate(photoRecord.timestamp)}</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">{formatIndonesianDate(photoRecord.timestamp)}</span>
                   </div>
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900 mt-1">
-                    Anda sudah berfoto bersama {student.namaLengkap}
+                  <h3 className="text-lg font-black text-slate-900 leading-tight">
+                    Sudah Berfoto Bersama
                   </h3>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    File tercatat: <code className="font-mono text-blue-700 font-semibold">{photoRecord.photoFileName}</code>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 self-stretch sm:self-auto shrink-0">
-                {/* 1. Lihat Foto */}
-                <button
-                  id="btn-detail-view-photo"
-                  type="button"
-                  onClick={() => onViewPhoto?.(photoRecord)}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-all flex-1 sm:flex-initial cursor-pointer"
-                  title="Lihat Pratinjau Foto"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Lihat Foto</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                  <Camera className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                    {currentUser ? 'Belum Ada Foto Bersama' : 'Tugas Foto Bersama Teman'}
-                  </span>
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900 mt-1">
-                    Ambil Foto Bersama dengan {student.namaPanggilan || student.namaLengkap}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Unggah foto bersama teman untuk melengkapi tugas perkenalan Logika 2026.
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                    File: <code className="font-mono text-blue-600 font-bold bg-blue-50/50 px-1.5 py-0.5 rounded">{photoRecord.photoFileName}</code>
                   </p>
                 </div>
               </div>
 
               <button
+                id="btn-detail-view-photo"
                 type="button"
-                onClick={() => onOpenUploadModal?.(student)}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-xs transition-all shrink-0 w-full sm:w-auto cursor-pointer"
+                onClick={() => onViewPhoto?.(photoRecord)}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl transition-all w-full sm:w-auto shadow-2xs active:scale-95 cursor-pointer"
               >
-                <Camera className="w-4 h-4" />
-                <span>Tambahkan Foto Bersama</span>
+                <Eye className="w-4 h-4" />
+                <span>Lihat Foto</span>
               </button>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="flex items-center gap-4 text-center sm:text-left flex-col sm:flex-row">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs animate-pulse">
+                  <Camera className="w-8 h-8" />
+                </div>
+                <div>
+                  <div className="flex justify-center sm:justify-start mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 bg-blue-100/50 px-2 py-0.5 rounded-md">
+                      Tugas Belum Selesai
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 leading-tight">
+                    Ambil Foto Bersama
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                    Lengkapi tugas perkenalan Logika 2026 dengan berfoto bersama rekan Anda.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                {currentUser && !isOwnProfile && (
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleToggleTracking}
+                    disabled={isTrackingLoading}
+                    className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-xs font-bold transition-all shadow-sm cursor-pointer border-2 relative overflow-hidden group ${
+                      isCheckedInTracking 
+                        ? 'bg-emerald-600 border-emerald-500 text-white' 
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600'
+                    }`}
+                  >
+                    <motion.div
+                      initial={false}
+                      animate={{ scale: isCheckedInTracking ? [1, 1.2, 1] : 1 }}
+                      transition={{ duration: 0.4 }}
+                      className="flex items-center gap-2"
+                    >
+                      {isCheckedInTracking ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Selesai Foto</span>
+                        </>
+                      ) : (
+                        <>
+                          <Circle className="w-4 h-4" />
+                          <span>Tandai Selesai</span>
+                        </>
+                      )}
+                    </motion.div>
+                    
+                    {/* Ripple visual effect simulation */}
+                    <motion.div
+                      className="absolute inset-0 bg-white/20"
+                      initial={{ scale: 0, opacity: 0 }}
+                      whileTap={{ 
+                        scale: 4, 
+                        opacity: [0, 1, 0],
+                        transition: { duration: 0.5 }
+                      }}
+                    />
+                  </motion.button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onOpenUploadModal?.(student)}
+                  className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-2xl text-sm font-bold shadow-md transition-all w-full sm:w-auto cursor-pointer"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span>Unggah Foto</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
       )}
 
       {/* Grid of Data Fields */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Section 1: Informasi Akademik & Identitas */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-            <User className="w-4 h-4 text-blue-600" />
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-              Identitas &amp; Akademik
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+              <User className="w-4 h-4 text-blue-600" />
+            </div>
+            <h2 className="text-sm font-black text-slate-900 uppercase tracking-tight">
+              Identitas & Akademik
             </h2>
           </div>
 
-          {/* 1. Nama Lengkap */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-              <span className="flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-blue-600" />
-                NAMA LENGKAP
-              </span>
-              <button
-                type="button"
-                onClick={() => handleCopy(student.namaLengkap, 'nama')}
-                className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-                title="Salin Nama Lengkap"
-              >
-                {copiedField === 'nama' ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
+          <div className="space-y-3">
+            {/* 1. Nama Lengkap */}
+            <div className="group transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <User className="w-3 h-3" />
+                  Nama Lengkap
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(student.namaLengkap, 'nama')}
+                  className="p-1 text-slate-300 hover:text-blue-600 transition-colors cursor-pointer"
+                >
+                  {copiedField === 'nama' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-sm font-bold text-slate-800 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100 group-hover:border-blue-100 group-hover:bg-blue-50/30 transition-all">
+                {student.namaLengkap}
+              </p>
             </div>
-            <p className="text-sm font-bold text-slate-900">{student.namaLengkap}</p>
-          </div>
 
-          {/* 2. Nama Panggilan */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-              <span className="flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-blue-600" />
-                NAMA PANGGILAN
-              </span>
-            </div>
-            <p className="text-sm font-bold text-slate-900">{student.namaPanggilan || '-'}</p>
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              {/* 2. Nama Panggilan */}
+              <div className="group transition-all">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                  <Tag className="w-3 h-3" />
+                  Panggilan
+                </span>
+                <p className="text-sm font-bold text-slate-800 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100">
+                  {student.namaPanggilan || '-'}
+                </p>
+              </div>
 
-          {/* 3. NIM */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-              <span className="flex items-center gap-1.5">
-                <IdCard className="w-3.5 h-3.5 text-blue-600" />
-                NIM
-              </span>
-              <button
-                type="button"
-                onClick={() => handleCopy(student.nim, 'nim')}
-                className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-                title="Salin NIM"
-              >
-                {copiedField === 'nim' ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
+              {/* 4. Kelompok */}
+              <div className="group transition-all">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                  <Users className="w-3 h-3" />
+                  Kelompok
+                </span>
+                <p className="text-sm font-bold text-slate-800 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100">
+                  {student.kelompok}
+                </p>
+              </div>
             </div>
-            <p className="text-sm font-mono font-bold text-blue-900 bg-blue-50 px-2.5 py-1 rounded-lg inline-block">
-              {student.nim}
-            </p>
-          </div>
 
-          {/* 4. Kelompok */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-              <span className="flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-blue-600" />
-                KELOMPOK LOGIKA
-              </span>
+            {/* 3. NIM */}
+            <div className="group transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <IdCard className="w-3 h-3" />
+                  NIM Mahasiswa
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(student.nim, 'nim')}
+                  className="p-1 text-slate-300 hover:text-blue-600 transition-colors cursor-pointer"
+                >
+                  {copiedField === 'nim' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-sm font-mono font-bold text-blue-700 bg-blue-50/50 px-4 py-2 rounded-xl border border-blue-100 inline-block">
+                {student.nim}
+              </p>
             </div>
-            <p className="text-sm font-bold text-slate-900">{student.kelompok}</p>
           </div>
         </div>
 
         {/* Section 2: Kontak & Hobi */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-            <Phone className="w-4 h-4 text-blue-600" />
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Phone className="w-4 h-4 text-emerald-600" />
+            </div>
+            <h2 className="text-sm font-black text-slate-900 uppercase tracking-tight">
               {isOwnProfile ? 'Kontak & Hobi Saya' : 'Kontak & Komunikasi'}
             </h2>
           </div>
 
-          {/* 5. NO WA */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-              <span className="flex items-center gap-1.5">
-                <WhatsAppIcon className="w-3.5 h-3.5 text-emerald-600" />
-                NOMOR WHATSAPP
-              </span>
-              <button
-                type="button"
-                onClick={() => handleCopy(student.noWa, 'wa')}
-                className="text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
-                title="Salin Nomor WhatsApp"
-              >
-                {copiedField === 'wa' ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
-            </div>
-            <div className="flex items-center justify-between gap-2 mt-1">
-              <span className="text-sm font-mono font-bold text-slate-900">
-                {formatPhoneDisplay(student.noWa)}
-              </span>
-              {!isOwnProfile && waUrl && (
-                <a
-                  href={waUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
-                >
+          <div className="space-y-3">
+            {/* 5. NO WA */}
+            <div className="group transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   <WhatsAppIcon className="w-3 h-3" />
-                  <span>Buka Chat</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* 6. Email Address */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-              <span className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-blue-600" />
-                EMAIL ANDA
-              </span>
-              <button
-                type="button"
-                onClick={() => handleCopy(student.email, 'email')}
-                className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-                title="Salin Email"
-              >
-                {copiedField === 'email' ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
+                  WhatsApp
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(student.noWa, 'wa')}
+                  className="p-1 text-slate-300 hover:text-emerald-600 transition-colors cursor-pointer"
+                >
+                  {copiedField === 'wa' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2 bg-emerald-50/30 border border-emerald-100/50 p-2.5 rounded-2xl group-hover:border-emerald-200 transition-all">
+                <span className="text-sm font-mono font-bold text-slate-800 ml-1">
+                  {formatPhoneDisplay(student.noWa)}
+                </span>
+                {!isOwnProfile && waUrl && (
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2.5 py-1.5 rounded-xl transition-all hover:bg-emerald-200 flex items-center gap-1 uppercase tracking-tight"
+                  >
+                    <span>Chat</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 )}
-              </button>
+              </div>
             </div>
-            <p className="text-sm font-medium text-slate-900 break-all">{student.email}</p>
-          </div>
 
-          {/* 7. HOBI */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-              <span className="flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 text-rose-500" />
-                HOBI &amp; MINAT
-              </span>
+            {/* 6. Email Address */}
+            <div className="group transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Mail className="w-3 h-3" />
+                  Email
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(student.email, 'email')}
+                  className="p-1 text-slate-300 hover:text-blue-600 transition-colors cursor-pointer"
+                >
+                  {copiedField === 'email' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-sm font-bold text-slate-800 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100 truncate">
+                {student.email}
+              </p>
             </div>
-            <p className="text-sm font-medium text-slate-900 leading-relaxed">{student.hobi}</p>
+
+            {/* 7. HOBI */}
+            <div className="group transition-all">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                <Heart className="w-3 h-3 text-rose-500" />
+                Hobi & Minat
+              </span>
+              <p className="text-sm font-bold text-slate-800 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100 leading-relaxed italic">
+                "{student.hobi}"
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Section 3: Domisili & Folder Drive (Full Width) */}
+      {/* Section 3: Domisili (Full Width) */}
       <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
-        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-          <Home className="w-4 h-4 text-blue-600" />
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-            Informasi Asal &amp; Domisili
+        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+          <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center">
+            <Home className="w-4 h-4 text-rose-600" />
+          </div>
+          <h2 className="text-sm font-black text-slate-900 uppercase tracking-tight">
+            Asal & Domisili
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* 8. ASAL RUMAH */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1.5">
-              <span className="flex items-center gap-1.5">
-                <Compass className="w-3.5 h-3.5 text-blue-600" />
-                KOTA / DAERAH ASAL
+          <div className="group transition-all">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Compass className="w-3 h-3" />
+                Kota / Daerah Asal
               </span>
               <button
                 type="button"
                 onClick={() => handleCopy(student.asalRumah, 'asal')}
-                className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-                title="Salin Asal Daerah"
+                className="p-1 text-slate-300 hover:text-blue-600 transition-colors cursor-pointer"
               >
-                {copiedField === 'asal' ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
+                {copiedField === 'asal' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
-            <p className="text-sm font-bold text-slate-900">{student.asalRumah}</p>
+            <p className="text-sm font-bold text-slate-800 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100">
+              {student.asalRumah}
+            </p>
           </div>
 
           {/* 9. ALAMAT RUMAH/DOMISILI */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1.5">
-              <span className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                ALAMAT DOMISILI / TEMPAT TINGGAL
+          <div className="group transition-all">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <MapPin className="w-3 h-3" />
+                Alamat Lengkap (Domisili)
               </span>
               <button
                 type="button"
                 onClick={() => handleCopy(student.alamatRumahDomisili, 'alamat')}
-                className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-                title="Salin Alamat"
+                className="p-1 text-slate-300 hover:text-blue-600 transition-colors cursor-pointer"
               >
-                {copiedField === 'alamat' ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
+                {copiedField === 'alamat' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
-            <p className="text-sm font-medium text-slate-800 leading-relaxed">
+            <p className="text-sm font-bold text-slate-800 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100 leading-relaxed">
               {student.alamatRumahDomisili}
             </p>
           </div>
@@ -935,15 +971,15 @@ Alamat Email: ${student.email}`;
       </div>
 
       {/* Bottom Navigation Bar */}
-      <div className="pt-6 pb-4 border-t border-slate-200 flex items-center justify-start">
+      <div className="pt-4 pb-8 flex items-center justify-center">
         <button
           id="btn-bottom-back-to-list"
           type="button"
           onClick={onBack}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
+          className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white rounded-2xl text-sm font-black shadow-lg transition-all cursor-pointer tracking-tight"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>{backButtonText}</span>
+          <ArrowLeft className="w-5 h-5" />
+          <span>Kembali ke Menu Utama</span>
         </button>
       </div>
     </motion.div>

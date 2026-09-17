@@ -1,6 +1,6 @@
 {
   "name": "Logika 2026",
   "description": "Aplikasi portal dan sistem penugasan Know Each Other mahasiswa Logika 2026 dengan pelacakan foto bersama dan Google Drive.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

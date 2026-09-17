@@ -1,4 +1,4 @@
-import { Camera, CheckCircle2, ChevronRight, Heart, Mail, MapPin, Sparkles, User } from 'lucide-react';
+import { Camera, CheckCircle2, ChevronRight, Crown, Heart, Mail, MapPin, Sparkles, User } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Mahasiswa } from '../types';
 import { formatWhatsAppUrl, formatPhoneDisplay } from '../lib/supabase';
@@ -11,6 +11,8 @@ interface StudentCardProps {
   currentUser?: Mahasiswa | null;
   isPhotoTaken?: boolean;
   onOpenUploadModal?: (student: Mahasiswa) => void;
+  index?: number;
+  showIndex?: boolean;
 }
 
 export function StudentCard({
@@ -19,6 +21,8 @@ export function StudentCard({
   currentUser,
   isPhotoTaken,
   onOpenUploadModal,
+  index,
+  showIndex,
 }: StudentCardProps) {
   const waUrl = formatWhatsAppUrl(student.noWa, student.namaPanggilan || student.namaLengkap);
 
@@ -80,7 +84,7 @@ export function StudentCard({
           <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
             {currentUser && isSelf ? (
               <span className="inline-flex items-center text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
-                Profil Anda
+                Profil Saya
               </span>
             ) : currentUser && isPhotoTaken ? (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full shadow-2xs">
@@ -106,12 +110,27 @@ export function StudentCard({
           <div
             className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm border ${avatarStyle} transition-transform group-hover:scale-105 shrink-0 mt-0.5`}
           >
-            {initials || <User className="w-5 h-5" />}
+            {showIndex && index ? (
+              <span className="text-base">{index}</span>
+            ) : (
+              initials || <User className="w-5 h-5" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2 break-words leading-snug">
-              {student.namaLengkap}
-            </h3>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2 break-words leading-snug">
+                {student.namaLengkap}
+              </h3>
+              {student.isLeader && (
+                <span
+                  title="Ketua Kelompok"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300/90 shadow-2xs shrink-0"
+                >
+                  <Crown className="w-3 h-3 text-amber-600 fill-amber-400 shrink-0" />
+                  <span>Ketua</span>
+                </span>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-slate-600">
               <span className="inline-flex items-center px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[11px] font-medium">
                 Sapaan: <strong className="text-slate-900 ml-1">{student.namaPanggilan}</strong>

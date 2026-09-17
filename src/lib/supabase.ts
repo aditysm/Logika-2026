@@ -19,6 +19,7 @@ export const DEFAULT_PROFILES_TABLE = 'profiles';
 export const DEFAULT_GROUPS_TABLE = 'groups';
 export const DEFAULT_PHOTO_LOGS_TABLE = 'photo_logs';
 export const DEFAULT_TABLE_NAME = 'profiles';
+export const DEFAULT_PHOTO_TRACKING_TABLE = 'photo_tracking';
 
 // Default 10 Seed Groups matching SQL schema
 export const DEFAULT_GROUPS: Record<number, string> = {
@@ -186,6 +187,14 @@ export function normalizeMahasiswaRow(
   const rawTier = findValue(row, ['tier', 'status_tier', 'level', 'TIER', 'Tier']).toLowerCase().trim();
   const tier: 'free' | 'basic' | 'pro' = (rawTier === 'pro' || rawTier === 'basic') ? rawTier : 'free';
 
+  const rawLeader = row.is_leader ?? row.isLeader ?? row.is_ketua ?? row.ketua ?? row.leader;
+  const isLeader =
+    rawLeader === true ||
+    rawLeader === 'true' ||
+    rawLeader === 1 ||
+    rawLeader === '1' ||
+    rawLeader === 't';
+
   return {
     id: (row.id as string) || (row.ID as string) || `mhs-${nim || index}-${Date.now()}`,
     timestamp: timestamp || '-',
@@ -202,6 +211,7 @@ export function normalizeMahasiswaRow(
       driveFolderUrl ||
       (nim ? `https://drive.google.com/drive/folders/mhs-${nim.replace(/[\/\s]/g, '-')}` : undefined),
     tier,
+    isLeader,
     raw: row,
   };
 }
@@ -474,7 +484,8 @@ export async function saveProfileToSupabase(
 export function subscribeToSupabaseRealtime(
   onProfilesChange: () => void,
   onPhotoLogsChange: () => void,
-  onPaymentLogsChange?: () => void
+  onPaymentLogsChange?: () => void,
+  onPhotoTrackingChange?: () => void
 ): () => void {
   const supabase = getSupabaseClient();
   if (!supabase) return () => {};
@@ -504,6 +515,15 @@ export function subscribeToSupabaseRealtime(
         () => {
           if (onPaymentLogsChange) {
             onPaymentLogsChange();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: DEFAULT_PHOTO_TRACKING_TABLE },
+        () => {
+          if (onPhotoTrackingChange) {
+            onPhotoTrackingChange();
           }
         }
       )
@@ -578,6 +598,69 @@ export async function createPaymentLogInSupabase(
     return true;
   } catch (err) {
     console.error('Error inserting payment_log:', err);
+    return false;
+  }
+}
+
+// Fetch photo tracking logs for the current user
+export async function fetchPhotoTrackingFromSupabase(
+  userKey?: string,
+  customConfig?: SupabaseConfig
+): Promise<Record<string, boolean>> {
+  const supabase = getSupabaseClient(customConfig);
+  if (!supabase || !userKey) return {};
+
+  try {
+    const { data, error } = await supabase
+      .from(DEFAULT_PHOTO_TRACKING_TABLE)
+      .select('target_nim, is_checked')
+      .eq('user_id', userKey);
+
+    if (error) {
+      console.warn('Failed to fetch photo_tracking:', error.message);
+      return {};
+    }
+
+    const trackingMap: Record<string, boolean> = {};
+    if (data) {
+      data.forEach((row: { target_nim: string; is_checked: boolean }) => {
+        trackingMap[row.target_nim] = row.is_checked;
+      });
+    }
+    return trackingMap;
+  } catch (err) {
+    console.error('Error fetching photo_tracking:', err);
+    return {};
+  }
+}
+
+// Upsert photo tracking record
+export async function upsertPhotoTrackingInSupabase(
+  userKey: string,
+  targetNim: string,
+  isChecked: boolean
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userKey) return false;
+
+  try {
+    const { error } = await supabase.from(DEFAULT_PHOTO_TRACKING_TABLE).upsert(
+      {
+        user_id: userKey,
+        target_nim: targetNim,
+        is_checked: isChecked,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'user_id,target_nim' }
+    );
+
+    if (error) {
+      console.warn('Supabase photo_tracking upsert error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error upserting photo_tracking:', err);
     return false;
   }
 }

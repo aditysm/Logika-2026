@@ -1,5 +1,9 @@
-import { ArrowUpDown, Filter, Search, X } from 'lucide-react';
+import { ArrowUpDown, Filter, Search, X, QrCode } from 'lucide-react';
+import { useState } from 'react';
 import { CustomSelect, CustomSelectOption } from './CustomSelect';
+import { QRScannerModal } from './QRScannerModal';
+
+import { Mahasiswa } from '../types';
 
 interface SearchBarProps {
   searchQuery: string;
@@ -11,6 +15,7 @@ interface SearchBarProps {
   onSortChange: (sort: 'nama' | 'nim' | 'kelompok') => void;
   totalFiltered: number;
   totalAll: number;
+  currentUser: Mahasiswa | null;
 }
 
 const SORT_OPTIONS: CustomSelectOption<'nama' | 'nim' | 'kelompok'>[] = [
@@ -29,7 +34,26 @@ export function SearchBar({
   onSortChange,
   totalFiltered,
   totalAll,
+  currentUser,
 }: SearchBarProps) {
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  const handleScanSuccess = (decodedText: string) => {
+    // If it's a URL (like from our profile sharing), try to extract the NIM or name
+    // Example: https://.../?search=12345678
+    try {
+      const url = new URL(decodedText);
+      const searchParam = url.searchParams.get('search');
+      if (searchParam) {
+        onSearchChange(searchParam);
+        return;
+      }
+    } catch (e) {
+      // Not a URL, just use the raw text (which might be the NIM directly)
+      onSearchChange(decodedText);
+    }
+  };
+
   return (
     <div className="w-full space-y-3.5">
       {/* Search Input, Count & Dropdown Filter Row */}
@@ -44,49 +68,69 @@ export function SearchBar({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari nama lengkap, panggilan, NIM, atau kelompok..."
-            className="w-full pl-11 pr-10 py-3 bg-white border border-slate-300 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base shadow-xs transition-all"
+            placeholder="Cari nama, NIM, atau scan QR..."
+            className="w-full pl-11 pr-24 py-3 bg-white border border-slate-300 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base shadow-xs transition-all"
           />
-          {searchQuery && (
+          <div className="absolute inset-y-0 right-0 flex items-center pr-1.5 gap-1">
+            {searchQuery && (
+              <button
+                id="btn-clear-search"
+                type="button"
+                onClick={() => onSearchChange('')}
+                className="p-2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                title="Hapus pencarian"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
             <button
-              id="btn-clear-search"
+              id="btn-open-scanner"
               type="button"
-              onClick={() => onSearchChange('')}
-              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-              title="Hapus pencarian"
+              onClick={() => setIsScannerOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 cursor-pointer"
+              title="Pindai QR Code"
             >
-              <X className="w-4 h-4" />
+              <QrCode className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-tighter hidden sm:inline">Pindai QR</span>
             </button>
-          )}
+          </div>
         </div>
 
         {/* Count & Dropdown Filter beside Search Bar on desktop, or aligned nicely on small screens */}
-        <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
-          <span className="text-xs sm:text-sm text-slate-500 font-medium whitespace-nowrap">
+        <div className="flex items-center gap-3 w-full md:w-auto md:justify-end">
+          <span className="text-xs text-slate-500 font-medium whitespace-nowrap shrink-0">
             {totalFiltered === totalAll ? (
               <span>
-                Menampilkan <strong className="text-slate-900 font-bold">{totalAll}</strong> mahasiswa
+                Menampilkan <strong className="text-slate-900 font-bold">{totalAll}</strong>
+                <span className="hidden sm:inline"> mahasiswa</span>
               </span>
             ) : (
               <span>
-                Ditemukan <strong className="text-blue-600 font-bold">{totalFiltered}</strong> dari{' '}
-                {totalAll}
+                Ditemukan <strong className="text-blue-600 font-bold">{totalFiltered}</strong>
+                <span className="hidden sm:inline"> dari {totalAll}</span>
               </span>
             )}
           </span>
 
-          <div className="w-[145px] sm:w-[170px] md:min-w-[180px]">
+          <div className="flex-1 min-w-0 sm:flex-initial sm:w-[170px] md:w-[180px]">
             <CustomSelect
               id="select-sort-students"
               value={sortBy}
               onChange={onSortChange}
               options={SORT_OPTIONS}
-              size="md"
-              buttonClassName="bg-white rounded-2xl border-slate-300 py-2.5 sm:py-3 shadow-xs"
+              size="sm"
+              buttonClassName="bg-white rounded-xl border-slate-300 py-2 sm:py-2.5 shadow-xs text-xs"
             />
           </div>
         </div>
       </div>
+
+      <QRScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={handleScanSuccess}
+        currentUser={currentUser}
+      />
 
       {/* Group Filter Chips - Dedicated Full Width Row */}
       <div className="w-full flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin text-xs text-slate-600">

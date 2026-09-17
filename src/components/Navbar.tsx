@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck } from 'lucide-react';
+import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck, CheckCircle2 } from 'lucide-react';
 import { ConnectionStatus, Mahasiswa } from '../types';
 
 interface NavbarProps {
@@ -15,6 +15,7 @@ interface NavbarProps {
   onLogout?: () => void;
   onOpenLogin?: () => void;
   onOpenPremiumModal?: () => void;
+  onOpenTracking?: () => void;
 }
 
 export function Navbar({
@@ -28,6 +29,7 @@ export function Navbar({
   onLogout,
   onOpenLogin,
   onOpenPremiumModal,
+  onOpenTracking,
 }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -72,11 +74,6 @@ export function Navbar({
             <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight group-hover:text-blue-600 transition-colors">
               Logika 2026
             </h1>
-            {isDetailPage && (
-              <p className="text-xs text-slate-500 hidden sm:block">
-                Detail Profil Mahasiswa
-              </p>
-            )}
           </div>
         </button>
 
@@ -185,6 +182,25 @@ export function Navbar({
                         <span>Lihat Profil</span>
                         <p className="text-[10px] font-normal text-slate-400 truncate">
                           Detail profil &amp; progress Anda
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      id="menu-btn-tracking-foto"
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenTracking?.();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors text-left cursor-pointer"
+                      role="menuitem"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span>Tracking Foto</span>
+                        <p className="text-[10px] font-normal text-slate-400 truncate">
+                          Checklist progres foto bersama
                         </p>
                       </div>
                     </button>

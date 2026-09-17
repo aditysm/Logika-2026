@@ -12,6 +12,7 @@ export interface Mahasiswa {
   kelompok: string;
   driveFolderUrl?: string;
   tier?: 'free' | 'basic' | 'pro';
+  isLeader?: boolean;
   raw?: Record<string, unknown>;
 }
 
@@ -57,4 +58,12 @@ export interface PaymentLog {
   payment_proof_url?: string;
   status: 'pending' | 'approved' | 'rejected' | string;
   approved_at?: string;
+}
+
+export interface PhotoTracking {
+  id: string;
+  user_id: string;
+  target_nim: string;
+  is_checked: boolean;
+  updated_at: string;
 }

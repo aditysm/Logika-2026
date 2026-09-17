@@ -65,19 +65,9 @@ export function PricingPage({
     loadPaymentLogs();
   }, [currentUser?.nim, refreshKey]);
 
-  // Set up real-time listener for payment_logs table to live refresh
-  useEffect(() => {
-    const unsubscribe = subscribeToSupabaseRealtime(
-      () => {}, // profiles change
-      () => {}, // photo_logs change
-      async () => {
-        // payment_logs table changed remotely
-        await loadPaymentLogs();
-        await onRefreshProfileStatus();
-      }
-    );
-    return () => unsubscribe();
-  }, [currentUser?.nim]);
+  // Payment logs are refreshed automatically when refreshKey from parent changes, 
+  // which is triggered by the global Supabase realtime listener in App.tsx.
+  // We no longer need a separate listener here to avoid double-fetching and UI flickering.
 
   // Build the link prefilled with user details to simplify the payment validation process
   const getPrefilledFormUrl = (tierOption: 'basic' | 'pro' | 'upgrade_pro') => {
@@ -487,23 +477,7 @@ export function PricingPage({
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Riwayat &amp; Status Pembayaran</h3>
                 <p className="text-xs text-slate-500">Status pembayaran diperbarui secara otomatis</p>
-                <p className="text-[11px] text-slate-400 font-medium pt-0.5">
-                  Powered by{' '}
-                  <a
-                    id="link-dity-store-instagram"
-                    href="https://www.instagram.com/dity.storee"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline text-slate-700 hover:text-blue-600 font-semibold cursor-pointer transition-colors"
-                  >
-                    Dity Store
-                  </a>
-                </p>
               </div>
-            </div>
-            <div className="flex items-center gap-1.5 self-start sm:self-auto text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-full px-2.5 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Pembaruan Otomatis</span>
             </div>
           </div>
 
