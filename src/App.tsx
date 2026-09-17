@@ -20,6 +20,7 @@ import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { PricingPage } from './components/PricingPage';
 import { TrackingPage } from './components/TrackingPage';
 import { MainListView } from './components/MainListView';
+import { TierWarningBanner } from './components/TierWarningBanner';
 import { generateStudentReport } from './lib/reportGenerator';
 import { ConnectionStatus, Mahasiswa, PhotoRecord } from './types';
 import {
@@ -66,6 +67,7 @@ export default function App() {
 
   // Know Each Other & Photo Progress States
   const [currentUserNim, setCurrentUserNimState] = useState<string | null>(() => getCurrentUserNim());
+  const [isGuestMode, setIsGuestMode] = useState<boolean>(false);
   const [photoRecords, setPhotoRecords] = useState<PhotoRecord[]>(() => getPhotoRecords());
   const [filterPhotoStatus, setFilterPhotoStatus] = useState<'ALL' | 'BELUM' | 'SUDAH'>('ALL');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -254,6 +256,7 @@ export default function App() {
   };
 
   const handleContinueWithoutAccount = () => {
+    setIsGuestMode(true);
     navigate('/');
   };
 
@@ -263,6 +266,9 @@ export default function App() {
   };
 
   const handleBackToList = () => {
+    if (!currentUserNim) {
+      setIsGuestMode(true);
+    }
     navigate('/');
   };
 
@@ -274,7 +280,11 @@ export default function App() {
     setFilterPhotoStatus('ALL');
     setSortBy('nama');
     setCurrentPage(1);
-    navigate('/');
+    if (!currentUserNim && !isGuestMode) {
+      navigate('/login');
+    } else {
+      navigate('/');
+    }
   };
 
   const handleOpenPricing = () => {
@@ -351,6 +361,7 @@ export default function App() {
   }, [currentUserNim, students]);
 
   const handleLoginNim = (nim: string) => {
+    setIsGuestMode(false);
     setCurrentUserNim(nim);
     setCurrentUserNimState(nim);
 
@@ -409,8 +420,9 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUserNim(null);
     setCurrentUserNimState(null);
+    setIsGuestMode(false);
     setFilterPhotoStatus('ALL');
-    navigate('/');
+    navigate('/login');
     setToastMessage('Sesi akun berhasil diakhiri.');
     setTimeout(() => setToastMessage(null), 3000);
   };
@@ -623,7 +635,7 @@ export default function App() {
   // If user is currently on the login view route (/login), handled by Routes below
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 pt-16">
+    <div className="min-h-[100dvh] flex flex-col bg-slate-50 pt-16">
       {/* Top Fixed Navigation */}
       <Navbar
         onRefresh={() => loadData({ force: true })}
@@ -641,43 +653,55 @@ export default function App() {
         onContinueWithoutAccount={handleContinueWithoutAccount}
       />
 
+      {/* Top Banner Warning / Tip for Account Tier */}
+      {location.pathname !== '/login' && location.pathname !== '/pricing' && currentUser && (
+        <TierWarningBanner
+          currentUser={currentUser}
+          onOpenPricing={handleOpenPricing}
+        />
+      )}
+
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className={`flex-1 w-full mx-auto ${location.pathname === '/login' ? 'max-w-md px-3 py-1 sm:py-4 flex flex-col justify-center' : 'max-w-6xl px-4 sm:px-6 py-6 sm:py-8'}`}>
         <AnimatePresence mode="wait">
           <Routes location={location}>
             <Route
               path="/"
               element={
-                <MainListView
-                  currentUser={currentUser}
-                  students={students}
-                  directoryStudents={directoryStudents}
-                  sortedStudents={sortedStudents}
-                  paginatedStudents={paginatedStudents}
-                  photoRecords={photoRecords}
-                  isLoading={isLoading}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  selectedGroup={selectedGroup}
-                  setSelectedGroup={setSelectedGroup}
-                  groups={groups}
-                  sortBy={sortBy}
-                  setSortBy={setSortBy}
-                  filterPhotoStatus={filterPhotoStatus}
-                  setFilterPhotoStatus={setFilterPhotoStatus}
-                  currentPage={currentPage}
-                  setCurrentPage={setCurrentPage}
-                  totalPages={totalPages}
-                  itemsPerPage={itemsPerPage}
-                  isLargeScreen={isLargeScreen}
-                  handleSelectStudent={handleSelectStudent}
-                  handleOpenUploadPhoto={handleOpenUploadPhoto}
-                  handleOpenPricing={handleOpenPricing}
-                  handleGenerateReport={handleGenerateReport}
-                  handleFilterPhotoStatusChange={handleFilterPhotoStatusChange}
-                  loadData={loadData}
-                  hasTakenPhoto={hasTakenPhoto}
-                />
+                !currentUserNim && !isGuestMode ? (
+                  <Navigate to="/login" replace />
+                ) : (
+                  <MainListView
+                    currentUser={currentUser}
+                    students={students}
+                    directoryStudents={directoryStudents}
+                    sortedStudents={sortedStudents}
+                    paginatedStudents={paginatedStudents}
+                    photoRecords={photoRecords}
+                    isLoading={isLoading}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    selectedGroup={selectedGroup}
+                    setSelectedGroup={setSelectedGroup}
+                    groups={groups}
+                    sortBy={sortBy}
+                    setSortBy={setSortBy}
+                    filterPhotoStatus={filterPhotoStatus}
+                    setFilterPhotoStatus={setFilterPhotoStatus}
+                    currentPage={currentPage}
+                    setCurrentPage={setCurrentPage}
+                    totalPages={totalPages}
+                    itemsPerPage={itemsPerPage}
+                    isLargeScreen={isLargeScreen}
+                    handleSelectStudent={handleSelectStudent}
+                    handleOpenUploadPhoto={handleOpenUploadPhoto}
+                    handleOpenPricing={handleOpenPricing}
+                    handleGenerateReport={handleGenerateReport}
+                    handleFilterPhotoStatusChange={handleFilterPhotoStatusChange}
+                    loadData={loadData}
+                    hasTakenPhoto={hasTakenPhoto}
+                  />
+                )
               }
             />
             <Route
@@ -730,8 +754,13 @@ export default function App() {
                       onGenerateReport={handleGenerateReport}
                     />
                   </motion.div>
+                ) : isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-3">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <p className="text-xs text-slate-500 font-medium">Memuat data mahasiswa...</p>
+                  </div>
                 ) : (
-                  <Navigate to="/" replace />
+                  <Navigate to={currentUserNim || isGuestMode ? '/' : '/login'} replace />
                 )
               }
             />
@@ -835,7 +864,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200 bg-white/80 py-6 text-center text-xs text-slate-500">
+      <footer className={`mt-auto border-t border-slate-200 bg-white/80 text-center text-xs text-slate-500 ${location.pathname === '/login' ? 'py-3' : 'py-5 sm:py-6'}`}>
         <div className="w-full px-4 flex flex-col items-center justify-center gap-1.5 text-center">
           <p className="font-medium text-slate-600">
             Data Peserta Logika 2026 &bull; Powered by{' '}
@@ -859,7 +888,7 @@ export default function App() {
       />
 
       {/* Floating Scroll To Top Button */}
-      <ScrollToTopButton />
+      {location.pathname !== '/login' && <ScrollToTopButton />}
 
       {/* Logout Confirmation Custom Modal */}
       <LogoutConfirmModal

@@ -86,9 +86,9 @@ export function LoginPage({
     : students;
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col justify-center">
       {/* Main Centered Minimal Card */}
-      <main className="w-full max-w-md mx-auto my-auto px-4 py-8 relative">
+      <div className="w-full max-w-md mx-auto my-auto px-2 sm:px-4 py-2 sm:py-4 relative">
         {/* Floating Toast Error Notification */}
         <AnimatePresence>
           {toastError && (
@@ -115,11 +115,11 @@ export function LoginPage({
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="bg-white border border-slate-200 rounded-3xl p-7 sm:p-9 shadow-xs"
+          className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-xs"
         >
           {/* If redirected from Upload Photo button */}
           {targetStudentForUpload && (
-            <div className="mb-6 p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200/80 text-xs text-blue-900 flex items-start gap-2.5">
+            <div className="mb-4 p-3 rounded-2xl bg-blue-50/80 border border-blue-200/80 text-xs text-blue-900 flex items-start gap-2.5">
               <Camera className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-blue-950">
@@ -133,14 +133,14 @@ export function LoginPage({
           )}
 
           {/* Header */}
-          <div className="text-center mb-7">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3.5 shadow-2xs">
-              <UserCheck className="w-6 h-6" />
+          <div className="text-center mb-5 sm:mb-6">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-2.5 shadow-2xs">
+              <UserCheck className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               Masuk Akun Mahasiswa
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
               {targetStudentForUpload
                 ? 'Identifikasi diri Anda untuk mencatat foto bersama ke database.'
                 : 'Masukkan NIM Anda untuk mengakses progress foto bersama dan profil pribadi.'}
@@ -148,7 +148,7 @@ export function LoginPage({
           </div>
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
               <label htmlFor="input-nim-login" className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Nomor Induk Mahasiswa (NIM)
@@ -165,7 +165,7 @@ export function LoginPage({
                     if (errorMsg) setErrorMsg(null);
                   }}
                   placeholder={isLoading ? "Mohon tunggu..." : "F1D026...."}
-                  className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:bg-white transition-all ${
+                  className={`w-full px-4 py-2.5 sm:py-3 bg-slate-50 border rounded-xl text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:bg-white transition-all ${
                     isLoading ? 'opacity-60 cursor-not-allowed' : ''
                   } ${
                     errorMsg
@@ -196,7 +196,7 @@ export function LoginPage({
               id="btn-submit-login"
               type="submit"
               disabled={isLoading || !nimInput.trim()}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-2.5 sm:py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -208,7 +208,7 @@ export function LoginPage({
           </form>
 
           {/* Quick Select Accordion / Modal for seamless testing */}
-          <div className={`mt-6 pt-5 border-t border-slate-100 ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className={`mt-4 pt-4 border-t border-slate-100 ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
             <button
               type="button"
               disabled={isLoading}
@@ -279,7 +279,7 @@ export function LoginPage({
             )}
           </div>
         </motion.div>
-      </main>
+      </div>
 
       {/* Identity Confirmation Modal */}
       <AnimatePresence>

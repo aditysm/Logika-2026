@@ -67,8 +67,7 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
         scannerRef.current = html5QrCode;
 
         const config = { 
-          fps: 15, 
-          aspectRatio: 1.0
+          fps: 20, 
         };
 
         await html5QrCode.start(
@@ -231,41 +230,77 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                     </div>
                   </div>
                 ) : (
-                  <div id={scannerId} className="w-full h-full [&_video]:object-cover" />
+                  <>
+                    <style>{`
+                      #${scannerId} {
+                        width: 100% !important;
+                        height: 100% !important;
+                        position: absolute !important;
+                        inset: 0 !important;
+                        border: none !important;
+                        padding: 0 !important;
+                        overflow: hidden !important;
+                      }
+                      #${scannerId} video {
+                        width: 100% !important;
+                        height: 100% !important;
+                        min-width: 100% !important;
+                        min-height: 100% !important;
+                        object-fit: cover !important;
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                      }
+                      #${scannerId}__scan_region {
+                        width: 100% !important;
+                        height: 100% !important;
+                        min-height: 100% !important;
+                      }
+                      #${scannerId}__dashboard_section,
+                      #${scannerId}__header_message,
+                      #${scannerId} img {
+                        display: none !important;
+                      }
+                    `}</style>
+                    <div id={scannerId} className="w-full h-full absolute inset-0 overflow-hidden" />
+                  </>
                 )}
 
-                {/* Immersive Overlay */}
+                {/* Immersive Center Viewfinder Overlay */}
                 {!isInitializing && !error && (
                   <>
-                    <div className="absolute inset-0 pointer-events-none z-10 border-[32px] sm:border-[48px] border-black/40">
-                       {/* Center Focus Area */}
-                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[260px] h-[260px] border-2 border-white/10 rounded-3xl">
-                          {/* Corner Accents - Thicker & More Modern */}
-                          <div className="absolute top-[-4px] left-[-4px] w-12 h-12 border-t-[5px] border-l-[5px] border-blue-500 rounded-tl-[1.5rem]" />
-                          <div className="absolute top-[-4px] right-[-4px] w-12 h-12 border-t-[5px] border-r-[5px] border-blue-500 rounded-tr-[1.5rem]" />
-                          <div className="absolute bottom-[-4px] left-[-4px] w-12 h-12 border-b-[5px] border-l-[5px] border-blue-500 rounded-bl-[1.5rem]" />
-                          <div className="absolute bottom-[-4px] right-[-4px] w-12 h-12 border-b-[5px] border-r-[5px] border-blue-500 rounded-br-[1.5rem]" />
-                          
-                          {/* Scanning Line */}
-                          <motion.div
-                            animate={{ top: ['5%', '95%', '5%'] }}
-                            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                            className="absolute left-4 right-4 h-[3px] bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-[0_0_20px_rgba(59,130,246,1)] z-20"
-                          />
-                       </div>
+                    {/* Centered Dim Backdrop with Clear Cutout Box */}
+                    <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+                      <div className="relative w-[260px] h-[260px] sm:w-[280px] sm:h-[280px] rounded-3xl shadow-[0_0_0_9999px_rgba(2,6,23,0.6)]">
+                        {/* 4 Corner Brackets */}
+                        <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl shadow-sm" />
+                        <div className="absolute -top-1 -right-1 w-10 h-10 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl shadow-sm" />
+                        <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl shadow-sm" />
+                        <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-blue-500 rounded-br-2xl shadow-sm" />
+                        
+                        {/* Focus Inner Border */}
+                        <div className="absolute inset-0 border border-white/20 rounded-3xl" />
+
+                        {/* Animated Scanning Laser */}
+                        <motion.div
+                          animate={{ top: ['8%', '88%', '8%'] }}
+                          transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                          className="absolute left-3 right-3 h-[3px] bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-[0_0_16px_rgba(59,130,246,1)] z-20"
+                        />
+                      </div>
                     </div>
 
                     {/* Instruction Bottom Bar */}
-                    <div className="absolute bottom-16 left-0 right-0 p-8 z-30 flex flex-col items-center gap-6 pointer-events-none">
+                    <div className="absolute bottom-20 left-0 right-0 p-4 z-30 flex flex-col items-center gap-3 pointer-events-none">
                       <motion.div 
                         initial={{ y: 20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
-                        className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl p-4 flex items-center gap-3 max-w-xs shadow-2xl"
+                        className="bg-slate-900/80 backdrop-blur-xl border border-white/15 rounded-2xl px-4 py-2.5 flex items-center gap-2.5 max-w-xs shadow-xl"
                       >
-                        <div className="w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
-                          <Info className="w-4 h-4" />
+                        <div className="w-6 h-6 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/30">
+                          <Info className="w-3.5 h-3.5" />
                         </div>
-                        <p className="text-[11px] text-white leading-tight">
+                        <p className="text-[11px] font-medium text-slate-100 leading-tight">
                           Arahkan kamera ke QR Code teman untuk pencarian instan
                         </p>
                       </motion.div>

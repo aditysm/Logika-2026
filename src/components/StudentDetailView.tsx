@@ -285,17 +285,9 @@ Alamat Email: ${student.email}`;
 
             {/* Name and QR Toggle */}
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-1">
-                <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
-                  {student.namaLengkap}
-                </h1>
-                <p className="text-sm sm:text-base font-black text-blue-600 uppercase tracking-wide">
-                  {student.kelompok?.toUpperCase()}
-                </p>
-                <p className="text-xs sm:text-sm font-mono font-bold text-slate-500">
-                  {student.nim}
-                </p>
-              </div>
+              <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight flex-1">
+                {student.namaLengkap}
+              </h1>
               <button
                 type="button"
                 onClick={() => setShowQr(!showQr)}
