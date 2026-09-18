@@ -73,52 +73,20 @@ export function PricingPage({
   const getPrefilledFormUrl = (tierOption: 'basic' | 'pro' | 'upgrade_pro') => {
     if (!currentUser) return GOOGLE_FORM_BASE_URL;
     const params = new URLSearchParams();
-    params.set(ENTRY_NAMA, currentUser.namaLengkap);
-    params.set(ENTRY_NIM, currentUser.nim);
+    params.set(ENTRY_NAMA, currentUser.namaLengkap || '');
+    params.set(ENTRY_NIM, currentUser.nim || '');
  
-    let optionLabels: string[] = [];
-    let nominalLabels: string[] = [];
-
     if (tierOption === 'pro') {
-      optionLabels = [
-        'Pro Full (Rp7.000) — Paket komplit untuk pengguna baru',
-        'Pro Full (Rp7.000) – Paket komplit untuk pengguna baru',
-        'Pro Full (Rp7.000) - Paket komplit untuk pengguna baru',
-        'Pro Full (Rp7.000) — Paket komplit untuk pengguna baru ',
-        'Pro Full (Rp 7.000) — Paket komplit untuk pengguna baru',
-        'Pro Full (Rp 7.000) – Paket komplit untuk pengguna baru',
-        'Pro Full (Rp 7.000) - Paket komplit untuk pengguna baru',
-        'Pro Full (Rp. 7.000) — Paket komplit untuk pengguna baru',
-        'Pro Full (Rp.7.000) — Paket komplit untuk pengguna baru',
-        'Pro (Rp7.000) — Paket komplit untuk pengguna baru',
-        'Pro (Rp7.000) – Paket komplit untuk pengguna baru',
-        'Pro (Rp7.000) - Paket komplit untuk pengguna baru',
-      ];
-      nominalLabels = ['Rp7.000', 'Rp 7.000', '7.000', '7000'];
+      // Includes zero-width space (\u200B) matching Google Form prefilled option
+      params.set(ENTRY_OPTION, '\u200BPro Full (Rp7.000) — Paket komplit untuk pengguna baru');
+      params.set(ENTRY_NOMINAL, 'Rp7.000');
     } else if (tierOption === 'upgrade_pro') {
-      optionLabels = [
-        'Upgrade Pro (Rp5.000) — Khusus pengguna yang sudah bayar 2k & ingin unlock Generate Laporan',
-        'Upgrade Pro (Rp5.000) – Khusus pengguna yang sudah bayar 2k & ingin unlock Generate Laporan',
-        'Upgrade Pro (Rp5.000) - Khusus pengguna yang sudah bayar 2k & ingin unlock Generate Laporan',
-        'Upgrade Pro (Rp5.000) — Khusus pengguna yang sudah bayar 2k & ingin unlock Generate Laporan ',
-        'Upgrade Pro (Rp 5.000) — Khusus pengguna yang sudah bayar 2k & ingin unlock Generate Laporan',
-        'Upgrade Pro (Rp. 5.000) — Khusus pengguna yang sudah bayar 2k & ingin unlock Generate Laporan',
-      ];
-      nominalLabels = ['Rp5.000', 'Rp 5.000', '5.000', '5000'];
+      params.set(ENTRY_OPTION, 'Upgrade Pro (Rp5.000) — Khusus pengguna yang sudah bayar 2k & ingin unlock Generate Laporan');
+      params.set(ENTRY_NOMINAL, 'Rp5.000');
     } else {
-      optionLabels = [
-        'Basic (Rp2.000) — Akses upload & sinkronisasi Drive',
-        'Basic (Rp2.000) – Akses upload & sinkronisasi Drive',
-        'Basic (Rp2.000) - Akses upload & sinkronisasi Drive',
-        'Basic (Rp2.000) — Akses upload & sinkronisasi Drive ',
-        'Basic (Rp 2.000) — Akses upload & sinkronisasi Drive',
-        'Basic (Rp. 2.000) — Akses upload & sinkronisasi Drive',
-      ];
-      nominalLabels = ['Rp2.000', 'Rp 2.000', '2.000', '2000'];
+      params.set(ENTRY_OPTION, 'Basic (Rp2.000) — Akses upload & sinkronisasi Drive');
+      params.set(ENTRY_NOMINAL, 'Rp2.000');
     }
-
-    optionLabels.forEach((opt) => params.append(ENTRY_OPTION, opt));
-    nominalLabels.forEach((nom) => params.append(ENTRY_NOMINAL, nom));
  
     return `${GOOGLE_FORM_BASE_URL}?usp=pp_url&${params.toString()}`;
   };

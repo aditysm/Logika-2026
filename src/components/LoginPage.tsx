@@ -278,6 +278,19 @@ export function LoginPage({
               </motion.div>
             )}
           </div>
+
+          {/* Continue as Guest Button */}
+          <div className="mt-4 pt-3 border-t border-slate-100 text-center">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={onContinueWithoutAccount}
+              className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 font-semibold py-1 px-3 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              <span>Lanjut tanpa akun (Mode Tamu)</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          </div>
         </motion.div>
       </div>
 

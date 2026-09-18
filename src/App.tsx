@@ -255,13 +255,17 @@ export default function App() {
     }
   }, []);
 
-  // Update selectedStudent if it exists to point to the fresh data when students array changes
+  // Validate session when student list is loaded
   useEffect(() => {
-    if (students.length > 0 && selectedStudent) {
-      // freshStudent is already calculated by the selectedStudent useMemo
-      // No need to manually update a state that doesn't exist
+    if (!isLoading && students.length > 0 && currentUserNim) {
+      const found = findStudentInList(students, currentUserNim);
+      if (!found) {
+        // If stored NIM does not exist in loaded student list, clear invalid session
+        setCurrentUserNim(null);
+        setCurrentUserNimState(null);
+      }
     }
-  }, [students, selectedStudent]);
+  }, [isLoading, students, currentUserNim]);
 
   useEffect(() => {
     loadData();
@@ -326,6 +330,8 @@ export default function App() {
   };
 
   const handleContinueWithoutAccount = () => {
+    setCurrentUserNim(null);
+    setCurrentUserNimState(null);
     setIsGuestMode(true);
     navigate('/');
   };
@@ -776,20 +782,24 @@ export default function App() {
             <Route
               path="/login"
               element={
-                <motion.div
-                  key="login"
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.02 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <LoginPage
-                    onLogin={handleLoginNim}
-                    onContinueWithoutAccount={handleContinueWithoutAccount}
-                    students={students}
-                    isLoading={isLoading}
-                  />
-                </motion.div>
+                currentUserNim ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <motion.div
+                    key="login"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.02 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <LoginPage
+                      onLogin={handleLoginNim}
+                      onContinueWithoutAccount={handleContinueWithoutAccount}
+                      students={students}
+                      isLoading={isLoading}
+                    />
+                  </motion.div>
+                )
               }
             />
             <Route
