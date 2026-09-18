@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
 import { compressImageFile, generateNextFileName, getPhotoWithTarget } from '../lib/photoStorage';
 import { uploadFotoBersama } from '../lib/api';
+import { getIntuitiveErrorMessage } from '../lib/errorHandler';
 
 interface UploadPhotoPageProps {
   currentUser: Mahasiswa;
@@ -183,13 +184,13 @@ export function UploadPhotoPage({
         } else {
           console.warn('Edge function upload error:', uploadRes.error);
           isUploadSuccess = false;
-          serverError = uploadRes.error || 'Gagal mengunggah foto ke Google Drive (Masalah koneksi/server).';
+          serverError = getIntuitiveErrorMessage(uploadRes.error, 'Gagal mengunggah foto ke Google Drive.');
         }
       }
     } catch (err: unknown) {
       console.warn('Network upload error:', err);
       isUploadSuccess = false;
-      serverError = err instanceof Error ? err.message : 'Koneksi internet terputus atau server tidak merespon.';
+      serverError = getIntuitiveErrorMessage(err, 'Koneksi internet terputus atau server tidak merespons.');
     }
 
     if (!isUploadSuccess) {

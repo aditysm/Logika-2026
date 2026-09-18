@@ -1,25 +1,52 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Html5Qrcode } from 'html5-qrcode';
-import { X, QrCode, RefreshCw, AlertCircle, Info, Scan, UserCircle } from 'lucide-react';
+import {
+  X,
+  QrCode,
+  RefreshCw,
+  AlertCircle,
+  Info,
+  Scan,
+  UserCircle,
+  ArrowRight,
+  RotateCcw,
+  CheckCircle2,
+  Users,
+  MapPin,
+  Sparkles,
+  ExternalLink,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Mahasiswa } from '../types';
+import { normalizeNim } from '../lib/photoStorage';
 
 interface QRScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onScanSuccess: (decodedText: string) => void;
+  students?: Mahasiswa[];
   currentUser: Mahasiswa | null;
+  onScanSuccess?: (decodedText: string) => void;
+  onSelectStudent?: (student: Mahasiswa) => void;
 }
 
-export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: QRScannerModalProps) {
-  const [error, setError] = useState<{message: string, isPermission: boolean} | null>(null);
+export function QRScannerModal({
+  isOpen,
+  onClose,
+  students = [],
+  currentUser,
+  onScanSuccess,
+  onSelectStudent,
+}: QRScannerModalProps) {
+  const [error, setError] = useState<{ message: string; isPermission: boolean } | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
   const [isShowingOwnQr, setIsShowingOwnQr] = useState(false);
+  const [scannedStudent, setScannedStudent] = useState<Mahasiswa | null>(null);
+  const [unrecognizedQrText, setUnrecognizedQrText] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const scannerId = "qr-reader";
+  const scannerId = 'qr-reader';
 
   const getProfileUrl = () => {
     if (!currentUser) return window.location.origin;
@@ -28,8 +55,71 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
     return url.toString();
   };
 
+  // Helper to extract matching student from decoded QR string
+  const findStudentFromQr = (decodedText: string): Mahasiswa | null => {
+    if (!decodedText || students.length === 0) return null;
+    let query = decodedText.trim();
+
+    try {
+      const url = new URL(decodedText);
+      const mhsMatch = url.pathname.match(/\/mhs\/([^/]+)/);
+      if (mhsMatch && mhsMatch[1]) {
+        query = decodeURIComponent(mhsMatch[1]);
+      } else if (url.searchParams.get('search')) {
+        query = url.searchParams.get('search')!;
+      } else if (url.searchParams.get('nim')) {
+        query = url.searchParams.get('nim')!;
+      } else if (url.hash) {
+        const hashMhs = url.hash.match(/mhs=([^&]+)/) || url.hash.match(/search=([^&]+)/);
+        if (hashMhs && hashMhs[1]) {
+          query = decodeURIComponent(hashMhs[1]);
+        }
+      }
+    } catch {
+      // Not a URL, use raw string
+    }
+
+    const cleanQuery = query.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // 1. Match by exact normalized NIM or ID
+    const directMatch = students.find((s) => {
+      const sNim = (s.nim || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const sId = (s.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return (sNim && sNim === cleanQuery) || (sId && sId === cleanQuery);
+    });
+    if (directMatch) return directMatch;
+
+    // 2. Match by partial NIM or exact name
+    const nameMatch = students.find((s) => {
+      const sNim = (s.nim || '').toLowerCase();
+      const sName = (s.namaLengkap || '').toLowerCase();
+      const sNick = (s.namaPanggilan || '').toLowerCase();
+      const lowerQuery = query.toLowerCase();
+
+      return (
+        sNim === lowerQuery ||
+        sName === lowerQuery ||
+        (sNick && sNick === lowerQuery) ||
+        sName.includes(lowerQuery)
+      );
+    });
+
+    return nameMatch || null;
+  };
+
+  const stopScanner = async () => {
+    if (scannerRef.current && scannerRef.current.isScanning) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+      } catch (err) {
+        console.warn('Error stopping scanner:', err);
+      }
+    }
+  };
+
   useEffect(() => {
-    if (!isOpen || isShowingOwnQr) {
+    if (!isOpen || isShowingOwnQr || scannedStudent || unrecognizedQrText) {
       stopScanner();
       return;
     }
@@ -37,19 +127,19 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
     const startScanner = async () => {
       setIsInitializing(true);
       setError(null);
-      
+
       try {
         // Wait for the DOM element to be available (Portal might take a frame)
         let element = document.getElementById(scannerId);
         let attempts = 0;
         while (!element && attempts < 10) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
           element = document.getElementById(scannerId);
           attempts++;
         }
 
         if (!element) {
-          throw new Error("HTML Element with id=qr-reader not found");
+          throw new Error('HTML Element with id=qr-reader not found');
         }
 
         if (scannerRef.current) {
@@ -59,41 +149,48 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
             }
             scannerRef.current.clear();
           } catch (e) {
-            console.warn("Cleanup error:", e);
+            console.warn('Cleanup error:', e);
           }
         }
 
         const html5QrCode = new Html5Qrcode(scannerId);
         scannerRef.current = html5QrCode;
 
-        const config = { 
-          fps: 20, 
+        const config = {
+          fps: 20,
         };
 
         await html5QrCode.start(
-          { facingMode: "environment" },
+          { facingMode: 'environment' },
           config,
           (decodedText) => {
-            onScanSuccess(decodedText);
+            // Stop scanner immediately upon detection
             stopScanner();
-            onClose();
+
+            const found = findStudentFromQr(decodedText);
+            if (found) {
+              setScannedStudent(found);
+            } else {
+              setUnrecognizedQrText(decodedText);
+            }
           },
           () => {}
         );
         setIsInitializing(false);
       } catch (err: any) {
-        console.error("QR Scanner Error:", err);
-        
-        let displayMessage = "Gagal mengakses kamera. Pastikan izin kamera telah diberikan.";
+        console.error('QR Scanner Error:', err);
+
+        let displayMessage = 'Gagal mengakses kamera. Pastikan izin kamera telah diberikan.';
         let isPermission = false;
 
         if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied')) {
-          displayMessage = "Izin kamera ditolak. Silakan klik ikon gembok di bilah alamat browser Anda dan aktifkan kamera.";
+          displayMessage =
+            'Izin kamera ditolak. Silakan klik ikon gembok di bilah alamat browser Anda dan aktifkan kamera.';
           isPermission = true;
         } else if (err?.name === 'NotFoundError') {
-          displayMessage = "Kamera tidak ditemukan pada perangkat Anda.";
+          displayMessage = 'Kamera tidak ditemukan pada perangkat Anda.';
         } else if (err?.message?.includes('not found')) {
-          displayMessage = "Sistem gagal memuat area pemindaian. Silakan coba lagi.";
+          displayMessage = 'Sistem gagal memuat area pemindaian. Silakan coba lagi.';
         }
 
         setError({ message: displayMessage, isPermission });
@@ -107,95 +204,268 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
       clearTimeout(timer);
       stopScanner();
     };
-  }, [isOpen, retryCount, isShowingOwnQr]);
+  }, [isOpen, retryCount, isShowingOwnQr, scannedStudent, unrecognizedQrText]);
 
   const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
+    setScannedStudent(null);
+    setUnrecognizedQrText(null);
+    setRetryCount((prev) => prev + 1);
   };
 
-  const stopScanner = async () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      try {
-        await scannerRef.current.stop();
-        scannerRef.current.clear();
-      } catch (err) {
-        console.error("Error stopping scanner:", err);
-      }
+  const handleConfirmStudent = () => {
+    if (!scannedStudent) return;
+    const studentToOpen = scannedStudent;
+    setScannedStudent(null);
+    setUnrecognizedQrText(null);
+    stopScanner();
+    onClose();
+
+    if (onSelectStudent) {
+      onSelectStudent(studentToOpen);
+    } else if (onScanSuccess) {
+      onScanSuccess(studentToOpen.nim || studentToOpen.id);
     }
+  };
+
+  const handleFallbackSearch = () => {
+    if (!unrecognizedQrText) return;
+    const text = unrecognizedQrText;
+    setScannedStudent(null);
+    setUnrecognizedQrText(null);
+    stopScanner();
+    onClose();
+
+    if (onScanSuccess) {
+      onScanSuccess(text);
+    }
+  };
+
+  const handleCloseAll = () => {
+    setScannedStudent(null);
+    setUnrecognizedQrText(null);
+    stopScanner();
+    onClose();
   };
 
   if (!isOpen) return null;
 
-  // Use Portal to render at the document body to ensure it's on top of everything
   return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-[9999] flex items-center justify-center sm:p-4 overflow-hidden">
-        {/* Backdrop - Solid Dark for immersion */}
+        {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-slate-950"
+          className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
         />
 
-        {/* Immersive Scanner Container */}
+        {/* Immersive Scanner / Modal Container */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full h-full sm:h-auto sm:max-w-md sm:aspect-[3/4] bg-black sm:rounded-[40px] overflow-hidden flex flex-col"
+          className="relative w-full h-full sm:h-auto sm:max-w-md sm:aspect-[3/4] bg-slate-900 sm:rounded-[36px] overflow-hidden flex flex-col shadow-2xl border border-slate-800"
         >
-          {/* Top Control Bar - Minimalist */}
-          <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-30 pointer-events-none">
+          {/* Top Control Bar */}
+          <div className="absolute top-0 left-0 right-0 p-5 flex items-center justify-between z-30 pointer-events-none">
             <div className="flex items-center gap-3 pointer-events-auto">
-              <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-white flex items-center justify-center">
-                <QrCode className="w-6 h-6" />
+              <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-white flex items-center justify-center shadow-lg">
+                <QrCode className="w-5 h-5 text-blue-400" />
               </div>
-              <div className="hidden xs:block">
-                <h3 className="text-sm font-bold text-white">Scanner</h3>
-                <p className="text-[10px] text-white/50">Google Lens Mode</p>
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-tight">Pindai QR Code</h3>
+                <p className="text-[10px] text-slate-400 font-medium">Logika 2026</p>
               </div>
             </div>
             <button
-              onClick={onClose}
-              className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center cursor-pointer pointer-events-auto active:scale-90"
+              onClick={handleCloseAll}
+              className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center cursor-pointer pointer-events-auto active:scale-90"
+              aria-label="Tutup"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Core Viewport */}
           <div className="flex-1 relative overflow-hidden flex items-center justify-center">
-            {isShowingOwnQr ? (
+            {/* 1. Scanned Student Confirmation Modal */}
+            {scannedStudent ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="absolute inset-0 z-40 bg-slate-950/95 backdrop-blur-xl p-6 flex flex-col justify-between overflow-y-auto"
+              >
+                <div className="pt-16 pb-4 flex flex-col items-center text-center">
+                  {/* Badge */}
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-4">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Mahasiswa Ditemukan</span>
+                  </div>
+
+                  {/* Student Avatar / Initials */}
+                  <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-2xl font-black shadow-xl shadow-blue-900/40 border-2 border-white/20 mb-4">
+                    {scannedStudent.namaLengkap
+                      ? scannedStudent.namaLengkap
+                          .split(' ')
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((n) => n[0])
+                          .join('')
+                          .toUpperCase()
+                      : 'M'}
+                  </div>
+
+                  {/* Student Name */}
+                  <h4 className="text-xl font-extrabold text-white tracking-tight leading-snug max-w-xs">
+                    {scannedStudent.namaLengkap}
+                  </h4>
+                  {scannedStudent.namaPanggilan && (
+                    <p className="text-xs text-blue-400 font-semibold mt-0.5">
+                      Panggilan: &quot;{scannedStudent.namaPanggilan}&quot;
+                    </p>
+                  )}
+
+                  {/* Student Metadata Card */}
+                  <div className="w-full mt-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-left space-y-3">
+                    <div className="flex items-center justify-between text-xs pb-2.5 border-b border-slate-800/80">
+                      <span className="text-slate-400 font-medium">NIM</span>
+                      <span className="font-mono font-bold text-white tracking-wider bg-slate-800 px-2.5 py-0.5 rounded-lg border border-slate-700">
+                        {scannedStudent.nim || '-'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start justify-between text-xs pb-2.5 border-b border-slate-800/80 gap-2">
+                      <span className="text-slate-400 font-medium shrink-0 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-blue-400" />
+                        Kelompok
+                      </span>
+                      <span className="font-semibold text-slate-200 text-right">
+                        {scannedStudent.kelompok || 'Belum ada kelompok'}
+                      </span>
+                    </div>
+
+                    {(scannedStudent.asalRumah || scannedStudent.alamatRumahDomisili) && (
+                      <div className="flex items-start justify-between text-xs gap-2">
+                        <span className="text-slate-400 font-medium shrink-0 flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                          Asal
+                        </span>
+                        <span className="font-normal text-slate-300 text-right truncate max-w-[180px]">
+                          {scannedStudent.asalRumah || scannedStudent.alamatRumahDomisili}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {currentUser && normalizeNim(currentUser.nim) === normalizeNim(scannedStudent.nim) && (
+                    <div className="mt-3 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs">
+                      Ini adalah QR Code profil akun Anda sendiri.
+                    </div>
+                  )}
+
+                  <p className="text-xs text-slate-400 mt-4 leading-relaxed max-w-xs">
+                    Apakah ini mahasiswa yang ingin Anda tuju?
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="grid grid-cols-2 gap-3 pt-2 pb-2">
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all border border-slate-700 active:scale-95 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Pindai Ulang</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleConfirmStudent}
+                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer"
+                  >
+                    <span>Ya, Buka Detail</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </motion.div>
+            ) : unrecognizedQrText ? (
+              /* 2. Unrecognized QR Code Result Modal */
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="absolute inset-0 z-40 bg-slate-950/95 backdrop-blur-xl p-6 flex flex-col justify-between"
+              >
+                <div className="pt-20 flex flex-col items-center text-center">
+                  <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mb-4">
+                    <AlertCircle className="w-8 h-8" />
+                  </div>
+                  <h4 className="text-lg font-bold text-white mb-2">Data Mahasiswa Tidak Ditemukan</h4>
+                  <p className="text-xs text-slate-400 mb-4 max-w-xs leading-relaxed">
+                    QR Code yang dipindai tidak terdaftar dalam database mahasiswa Logika 2026.
+                  </p>
+
+                  <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-left">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">
+                      Konten QR:
+                    </p>
+                    <p className="text-xs font-mono text-slate-300 break-all">{unrecognizedQrText}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-4 pb-2">
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all border border-slate-700 active:scale-95 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Pindai Ulang</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleFallbackSearch}
+                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer"
+                  >
+                    <span>Cari di Daftar</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </button>
+                </div>
+              </motion.div>
+            ) : isShowingOwnQr ? (
+              /* 3. Own QR Code Display */
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-slate-950 z-20">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   className="bg-white p-6 rounded-[2.5rem] shadow-2xl border-4 border-blue-500/20"
                 >
-                  <QRCodeCanvas 
-                    value={getProfileUrl()} 
-                    size={220}
+                  <QRCodeCanvas
+                    value={getProfileUrl()}
+                    size={200}
                     level="H"
                     includeMargin={false}
                     imageSettings={{
                       src: `${window.location.origin}/favicon.ico`,
                       x: undefined,
                       y: undefined,
-                      height: 40,
-                      width: 40,
+                      height: 36,
+                      width: 36,
                       excavate: true,
                     }}
                   />
                 </motion.div>
-                <div className="mt-8 text-center">
-                  <h4 className="text-lg font-bold text-white mb-2">QR Profil Saya</h4>
-                  <p className="text-xs text-slate-400 max-w-[200px] mx-auto leading-relaxed">
-                    Tunjukkan ini ke teman untuk mempermudah pencarian profil Anda
+                <div className="mt-6 text-center">
+                  <h4 className="text-base font-bold text-white mb-1.5">QR Profil Saya</h4>
+                  <p className="text-xs text-slate-400 max-w-[220px] mx-auto leading-relaxed">
+                    Tunjukkan ini ke teman untuk memindai profil Anda secara langsung.
                   </p>
                 </div>
               </div>
             ) : (
+              /* 4. Active Scanner Camera View */
               <>
                 {isInitializing && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-20">
@@ -209,7 +479,7 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                     <div className="w-20 h-20 rounded-[2rem] bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mb-6">
                       <AlertCircle className="w-10 h-10" />
                     </div>
-                    <h4 className="text-xl font-bold mb-3">Butuh Akses</h4>
+                    <h4 className="text-xl font-bold mb-3">Butuh Akses Kamera</h4>
                     <p className="text-sm text-slate-400 mb-8 leading-relaxed max-w-xs mx-auto">
                       {error.message}
                     </p>
@@ -222,7 +492,7 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                         <span>Coba Lagi</span>
                       </button>
                       <button
-                        onClick={onClose}
+                        onClick={handleCloseAll}
                         className="px-8 py-4 bg-white/5 text-white/60 font-bold rounded-2xl text-sm transition-all border border-white/10 active:scale-95 cursor-pointer"
                       >
                         Tutup
@@ -266,25 +536,24 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
                   </>
                 )}
 
-                {/* Immersive Center Viewfinder Overlay */}
+                {/* Viewfinder Overlay */}
                 {!isInitializing && !error && (
                   <>
-                    {/* Centered Dim Backdrop with Clear Cutout Box */}
                     <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-                      <div className="relative w-[260px] h-[260px] sm:w-[280px] sm:h-[280px] rounded-3xl shadow-[0_0_0_9999px_rgba(2,6,23,0.6)]">
+                      <div className="relative w-[250px] h-[250px] sm:w-[270px] sm:h-[270px] rounded-3xl shadow-[0_0_0_9999px_rgba(2,6,23,0.6)]">
                         {/* 4 Corner Brackets */}
-                        <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl shadow-sm" />
-                        <div className="absolute -top-1 -right-1 w-10 h-10 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl shadow-sm" />
-                        <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl shadow-sm" />
-                        <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-blue-500 rounded-br-2xl shadow-sm" />
-                        
+                        <div className="absolute -top-1 -left-1 w-9 h-9 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl shadow-sm" />
+                        <div className="absolute -top-1 -right-1 w-9 h-9 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl shadow-sm" />
+                        <div className="absolute -bottom-1 -left-1 w-9 h-9 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl shadow-sm" />
+                        <div className="absolute -bottom-1 -right-1 w-9 h-9 border-b-4 border-r-4 border-blue-500 rounded-br-2xl shadow-sm" />
+
                         {/* Focus Inner Border */}
                         <div className="absolute inset-0 border border-white/20 rounded-3xl" />
 
                         {/* Animated Scanning Laser */}
                         <motion.div
                           animate={{ top: ['8%', '88%', '8%'] }}
-                          transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
                           className="absolute left-3 right-3 h-[3px] bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-[0_0_16px_rgba(59,130,246,1)] z-20"
                         />
                       </div>
@@ -292,16 +561,16 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
 
                     {/* Instruction Bottom Bar */}
                     <div className="absolute bottom-20 left-0 right-0 p-4 z-30 flex flex-col items-center gap-3 pointer-events-none">
-                      <motion.div 
+                      <motion.div
                         initial={{ y: 20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
-                        className="bg-slate-900/80 backdrop-blur-xl border border-white/15 rounded-2xl px-4 py-2.5 flex items-center gap-2.5 max-w-xs shadow-xl"
+                        className="bg-slate-900/80 backdrop-blur-xl border border-white/15 rounded-2xl px-4 py-2 flex items-center gap-2.5 max-w-xs shadow-xl"
                       >
-                        <div className="w-6 h-6 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/30">
-                          <Info className="w-3.5 h-3.5" />
+                        <div className="w-5 h-5 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/30">
+                          <Info className="w-3 h-3" />
                         </div>
                         <p className="text-[11px] font-medium text-slate-100 leading-tight">
-                          Arahkan kamera ke QR Code teman untuk pencarian instan
+                          Arahkan kamera ke QR Code teman untuk memindai
                         </p>
                       </motion.div>
                     </div>
@@ -311,23 +580,23 @@ export function QRScannerModal({ isOpen, onClose, onScanSuccess, currentUser }: 
             )}
           </div>
 
-          {/* Toggle Button Container */}
-          {currentUser && (
-            <div className="absolute bottom-6 left-0 right-0 z-40 flex justify-center px-6">
+          {/* Toggle Button Container (Bottom) */}
+          {currentUser && !scannedStudent && !unrecognizedQrText && (
+            <div className="absolute bottom-5 left-0 right-0 z-40 flex justify-center px-6">
               <button
                 onClick={() => setIsShowingOwnQr(!isShowingOwnQr)}
                 className="group flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95"
               >
-                <div className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 rounded-2xl text-white transition-all">
+                <div className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 rounded-2xl text-white transition-all shadow-lg">
                   {isShowingOwnQr ? (
                     <>
-                      <Scan className="w-4 h-4" />
-                      <span className="text-xs font-bold underline underline-offset-4 decoration-white/40">Scan QR Teman</span>
+                      <Scan className="w-4 h-4 text-blue-400" />
+                      <span className="text-xs font-bold">Scan QR Teman</span>
                     </>
                   ) : (
                     <>
-                      <UserCircle className="w-4 h-4" />
-                      <span className="text-xs font-bold underline underline-offset-4 decoration-white/40">Tampilkan QR Saya</span>
+                      <UserCircle className="w-4 h-4 text-blue-400" />
+                      <span className="text-xs font-bold">Tampilkan QR Saya</span>
                     </>
                   )}
                 </div>

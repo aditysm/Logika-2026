@@ -16,6 +16,8 @@ interface SearchBarProps {
   totalFiltered: number;
   totalAll: number;
   currentUser: Mahasiswa | null;
+  students?: Mahasiswa[];
+  onSelectStudent?: (student: Mahasiswa) => void;
 }
 
 const SORT_OPTIONS: CustomSelectOption<'nama' | 'nim' | 'kelompok'>[] = [
@@ -35,6 +37,8 @@ export function SearchBar({
   totalFiltered,
   totalAll,
   currentUser,
+  students = [],
+  onSelectStudent,
 }: SearchBarProps) {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
@@ -128,8 +132,10 @@ export function SearchBar({
       <QRScannerModal
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
-        onScanSuccess={handleScanSuccess}
+        students={students}
         currentUser={currentUser}
+        onScanSuccess={handleScanSuccess}
+        onSelectStudent={onSelectStudent}
       />
 
       {/* Group Filter Chips - Dedicated Full Width Row */}

@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Mahasiswa, PhotoRecord, SupabaseConfig, PaymentLog } from '../types';
 import { extractDriveFolderId } from './api';
+import { getIntuitiveErrorMessage } from './errorHandler';
 
 /**
  * ============================================================================
@@ -277,7 +278,7 @@ export async function fetchStudentsFromSupabase(
         data: SAMPLE_MAHASISWA,
         isRealData: false,
         sourceTable: tableToQuery,
-        error: `Gagal membaca tabel "${tableToQuery}": ${error.message}`,
+        error: getIntuitiveErrorMessage(error, `Gagal memuat data dari tabel "${tableToQuery}".`),
       };
     }
 
@@ -296,12 +297,12 @@ export async function fetchStudentsFromSupabase(
       sourceTable: tableToQuery,
     };
   } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : 'Terjadi kesalahan jaringan Supabase';
+    const errorMsg = getIntuitiveErrorMessage(err, 'Terjadi kendala saat menghubungkan ke database.');
     return {
       data: SAMPLE_MAHASISWA,
       isRealData: false,
       sourceTable: config.tableName || DEFAULT_PROFILES_TABLE,
-      error: `Koneksi Supabase gagal: ${errorMsg}`,
+      error: errorMsg,
     };
   }
 }

@@ -50,7 +50,20 @@ import {
   saveProfileOverride,
   clearProfileOverrides,
 } from './lib/photoStorage';
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, RefreshCw, SearchX, Users, X } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  RefreshCw,
+  SearchX,
+  Users,
+  X,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+} from 'lucide-react';
+import { getIntuitiveErrorMessage } from './lib/errorHandler';
 
 export default function App() {
   const navigate = useNavigate();
@@ -70,8 +83,65 @@ export default function App() {
   const [isGuestMode, setIsGuestMode] = useState<boolean>(false);
   const [photoRecords, setPhotoRecords] = useState<PhotoRecord[]>(() => getPhotoRecords());
   const [filterPhotoStatus, setFilterPhotoStatus] = useState<'ALL' | 'BELUM' | 'SUDAH'>('ALL');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title?: string;
+  } | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback(
+    (
+      message: string,
+      type: 'success' | 'error' | 'warning' | 'info' = 'success',
+      duration = 4000,
+      title?: string
+    ) => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      setToast({ message, type, title });
+      if (duration > 0) {
+        toastTimeoutRef.current = setTimeout(() => {
+          setToast(null);
+        }, duration);
+      }
+    },
+    []
+  );
+
+  const setToastMessage = useCallback(
+    (msg: string | null, type: 'success' | 'error' | 'warning' | 'info' = 'success', duration = 3500) => {
+      if (!msg) {
+        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        setToast(null);
+        return;
+      }
+      showToast(msg, type, duration);
+    },
+    [showToast]
+  );
+
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState<boolean>(false);
+
+  // Online / Offline intuitive connection status notification
+  useEffect(() => {
+    const handleOffline = () => {
+      showToast(
+        'Koneksi internet terputus. Pastikan perangkat Anda terhubung ke internet dan coba lagi nanti.',
+        'warning',
+        6000,
+        'Jaringan Offline'
+      );
+    };
+    const handleOnline = () => {
+      showToast('Koneksi internet kembali aktif.', 'success', 3000, 'Online');
+    };
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [showToast]);
 
   // Track search page scroll position to restore upon returning
   const searchScrollPosRef = useRef<number>(0);
@@ -485,17 +555,16 @@ export default function App() {
   const handleGenerateReport = async () => {
     if (!currentUser) return;
     try {
-      setToastMessage('Sedang menyiapkan dokumen laporan (.docx)...');
+      showToast('Sedang menyiapkan dokumen laporan biodata (.docx)...', 'info', 4000);
       const targetFriends = students.filter(
         (s) => currentUser && normalizeNim(s.nim) !== normalizeNim(currentUser.nim)
       );
       await generateStudentReport(currentUser, targetFriends, photoRecords);
-      setToastMessage('Laporan (.docx) berhasil digenerate & diunduh!');
-      setTimeout(() => setToastMessage(null), 3500);
-    } catch (err: any) {
+      showToast('Laporan (.docx) berhasil dibuat dan diunduh!', 'success', 4000, 'Berhasil Diunduh');
+    } catch (err: unknown) {
       console.error('Error generating report:', err);
-      setToastMessage(`Gagal mengunduh laporan: ${err?.message || err}`);
-      setTimeout(() => setToastMessage(null), 3500);
+      const msg = getIntuitiveErrorMessage(err, 'Gagal mengunduh berkas laporan.');
+      showToast(msg, 'error', 6000, 'Gagal Mengunduh Laporan');
     }
   };
 
@@ -902,19 +971,65 @@ export default function App() {
 
       {/* Floating Toast Notification */}
       <AnimatePresence>
-        {toastMessage && (
+        {toast && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-slate-700/80 text-xs font-medium max-w-md w-[90%] backdrop-blur-md"
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-2xl shadow-2xl flex items-start gap-3 border text-xs font-medium max-w-md w-[92%] sm:w-auto sm:min-w-[340px] backdrop-blur-xl ${
+              toast.type === 'error'
+                ? 'bg-slate-900/95 border-rose-500/40 text-rose-50 shadow-rose-950/30'
+                : toast.type === 'warning'
+                ? 'bg-slate-900/95 border-amber-500/40 text-amber-50 shadow-amber-950/30'
+                : toast.type === 'info'
+                ? 'bg-slate-900/95 border-blue-500/40 text-blue-50 shadow-blue-950/30'
+                : 'bg-slate-900/95 border-emerald-500/40 text-emerald-50 shadow-emerald-950/30'
+            }`}
           >
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span className="flex-1">{toastMessage}</span>
+            {toast.type === 'error' && (
+              <div className="w-6 h-6 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0 mt-0.5 border border-rose-500/20">
+                <AlertCircle className="w-4 h-4 text-rose-400" />
+              </div>
+            )}
+            {toast.type === 'warning' && (
+              <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 mt-0.5 border border-amber-500/20">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+              </div>
+            )}
+            {toast.type === 'info' && (
+              <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5 border border-blue-500/20">
+                <Info className="w-4 h-4 text-blue-400" />
+              </div>
+            )}
+            {toast.type === 'success' && (
+              <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-500/20">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              </div>
+            )}
+
+            <div className="flex-1 min-w-0 pr-1">
+              {toast.title && (
+                <p className={`text-xs font-semibold mb-0.5 ${
+                  toast.type === 'error'
+                    ? 'text-rose-300'
+                    : toast.type === 'warning'
+                    ? 'text-amber-300'
+                    : toast.type === 'info'
+                    ? 'text-blue-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {toast.title}
+                </p>
+              )}
+              <p className="text-slate-200 leading-relaxed font-normal text-xs">{toast.message}</p>
+            </div>
+
             <button
               type="button"
-              onClick={() => setToastMessage(null)}
-              className="p-1 text-slate-400 hover:text-white transition-colors"
+              onClick={() => setToast(null)}
+              aria-label="Tutup notifikasi"
+              className="p-1 -mr-1 -mt-0.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors shrink-0"
             >
               <X className="w-4 h-4" />
             </button>

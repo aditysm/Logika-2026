@@ -109,6 +109,8 @@ export function MainListView({
 
           <SearchBar
             currentUser={currentUser}
+            students={students}
+            onSelectStudent={handleSelectStudent}
             searchQuery={searchQuery}
             onSearchChange={(q) => {
               setSearchQuery(q);

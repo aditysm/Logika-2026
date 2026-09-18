@@ -1,3 +1,5 @@
+import { getIntuitiveErrorMessage } from './errorHandler';
+
 /**
  * API Client for interacting with the Supabase Edge Function
  * Endpoint: https://fwhapumjpfbqirmqqwrm.supabase.co/functions/v1/logika
@@ -136,9 +138,9 @@ export async function updateProfilUser(
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      const errMsg =
-        (result && (result.error || result.message)) || `Gagal update profil (${response.status})`;
-      return { success: false, error: errMsg };
+      const rawErr =
+        (result && (result.error || result.message)) || `Gagal update profil (HTTP ${response.status})`;
+      return { success: false, error: getIntuitiveErrorMessage({ status: response.status, message: rawErr }) };
     }
 
     return {
@@ -147,7 +149,7 @@ export async function updateProfilUser(
       data: result?.data || result,
     };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Koneksi ke server gagal saat update profil';
+    const msg = getIntuitiveErrorMessage(error, 'Koneksi ke server gagal saat update profil.');
     console.error('Gagal update profil:', error);
     return { success: false, error: msg };
   }
@@ -173,8 +175,8 @@ export async function cekFotoDiDrive(
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      const errMsg = (result && (result.error || result.message)) || `Gagal mengecek drive (${response.status})`;
-      return { success: false, error: errMsg, files: [] };
+      const rawErr = (result && (result.error || result.message)) || `Gagal mengecek drive (${response.status})`;
+      return { success: false, error: getIntuitiveErrorMessage({ status: response.status, message: rawErr }), files: [] };
     }
 
     const files: DriveFileItem[] = Array.isArray(result)
@@ -190,7 +192,7 @@ export async function cekFotoDiDrive(
       error?: string;
     };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Koneksi ke server gagal saat cek drive';
+    const msg = getIntuitiveErrorMessage(error, 'Koneksi ke server gagal saat mengecek Google Drive.');
     console.error('Gagal mengecek drive:', error);
     return { success: false, error: msg, files: [] };
   }
@@ -301,20 +303,20 @@ export async function uploadFotoBersama(params: {
     }
 
     if (!response) {
-      return { success: false, error: 'Tidak dapat terhubung ke server upload Supabase.' };
+      return { success: false, error: 'Tidak dapat terhubung ke server upload Supabase. Silakan coba lagi nanti.' };
     }
 
     const result: UploadPhotoResponse = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const errMsg =
+      const rawErr =
         result?.error || result?.message || `Upload gagal dengan kode status ${response.status}`;
-      return { success: false, error: String(errMsg) };
+      return { success: false, error: getIntuitiveErrorMessage({ status: response.status, message: rawErr }) };
     }
 
     return { success: true, data: result };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Koneksi ke backend upload gagal';
+    const msg = getIntuitiveErrorMessage(error, 'Koneksi ke backend upload gagal.');
     console.error('Upload gagal:', error);
     return { success: false, error: msg };
   }
@@ -364,20 +366,20 @@ export async function hapusFotoSalah(
     }
 
     if (!response) {
-      return { success: false, error: 'Tidak dapat terhubung ke server penghapusan.' };
+      return { success: false, error: 'Tidak dapat terhubung ke server penghapusan. Silakan coba lagi nanti.' };
     }
 
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      const errMsg =
+      const rawErr =
         (result && (result.error || result.message)) || `Gagal menghapus (${response.status})`;
-      return { success: false, error: errMsg };
+      return { success: false, error: getIntuitiveErrorMessage({ status: response.status, message: rawErr }) };
     }
 
     return { success: true, data: result };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Koneksi ke server gagal saat menghapus foto';
+    const msg = getIntuitiveErrorMessage(error, 'Koneksi ke server gagal saat menghapus foto.');
     console.error('Gagal menghapus:', error);
     return { success: false, error: msg };
   }
