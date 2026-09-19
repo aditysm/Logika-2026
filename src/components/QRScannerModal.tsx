@@ -16,6 +16,8 @@ import {
   MapPin,
   Sparkles,
   ExternalLink,
+  Check,
+  UserCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -29,6 +31,11 @@ interface QRScannerModalProps {
   currentUser: Mahasiswa | null;
   onScanSuccess?: (decodedText: string) => void;
   onSelectStudent?: (student: Mahasiswa) => void;
+  // Tracking mode support
+  mode?: 'default' | 'tracking';
+  trackingMap?: Record<string, boolean>;
+  onChecklistStudent?: (student: Mahasiswa) => Promise<boolean | void> | void;
+  initialShowOwnQr?: boolean;
 }
 
 export function QRScannerModal({
@@ -38,15 +45,32 @@ export function QRScannerModal({
   currentUser,
   onScanSuccess,
   onSelectStudent,
+  mode = 'default',
+  trackingMap = {},
+  onChecklistStudent,
+  initialShowOwnQr = false,
 }: QRScannerModalProps) {
   const [error, setError] = useState<{ message: string; isPermission: boolean } | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
-  const [isShowingOwnQr, setIsShowingOwnQr] = useState(false);
+  const [isShowingOwnQr, setIsShowingOwnQr] = useState(initialShowOwnQr);
   const [scannedStudent, setScannedStudent] = useState<Mahasiswa | null>(null);
   const [unrecognizedQrText, setUnrecognizedQrText] = useState<string | null>(null);
+  const [checklistSuccess, setChecklistSuccess] = useState<boolean>(false);
+  const [isProcessingChecklist, setIsProcessingChecklist] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerId = 'qr-reader';
+
+  // Sync initial state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setIsShowingOwnQr(initialShowOwnQr);
+      setScannedStudent(null);
+      setUnrecognizedQrText(null);
+      setChecklistSuccess(false);
+      setIsProcessingChecklist(false);
+    }
+  }, [isOpen, initialShowOwnQr]);
 
   const getProfileUrl = () => {
     if (!currentUser) return window.location.origin;
@@ -166,10 +190,14 @@ export function QRScannerModal({
           (decodedText) => {
             // Stop scanner immediately upon detection
             stopScanner();
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+              try { navigator.vibrate(60); } catch { /* ignore */ }
+            }
 
             const found = findStudentFromQr(decodedText);
             if (found) {
               setScannedStudent(found);
+              setChecklistSuccess(false);
             } else {
               setUnrecognizedQrText(decodedText);
             }
@@ -209,6 +237,7 @@ export function QRScannerModal({
   const handleRetry = () => {
     setScannedStudent(null);
     setUnrecognizedQrText(null);
+    setChecklistSuccess(false);
     setRetryCount((prev) => prev + 1);
   };
 
@@ -224,6 +253,23 @@ export function QRScannerModal({
       onSelectStudent(studentToOpen);
     } else if (onScanSuccess) {
       onScanSuccess(studentToOpen.nim || studentToOpen.id);
+    }
+  };
+
+  const handleExecuteChecklist = async () => {
+    if (!scannedStudent || !onChecklistStudent) return;
+    setIsProcessingChecklist(true);
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate([40, 60, 40]); } catch { /* ignore */ }
+      }
+      await onChecklistStudent(scannedStudent);
+      setChecklistSuccess(true);
+    } catch (err) {
+      console.error('Checklist error from QR:', err);
+    } finally {
+      setIsProcessingChecklist(false);
     }
   };
 
@@ -243,11 +289,15 @@ export function QRScannerModal({
   const handleCloseAll = () => {
     setScannedStudent(null);
     setUnrecognizedQrText(null);
+    setChecklistSuccess(false);
     stopScanner();
     onClose();
   };
 
   if (!isOpen) return null;
+
+  const isScannedSelf = currentUser && scannedStudent && normalizeNim(currentUser.nim) === normalizeNim(scannedStudent.nim);
+  const isAlreadyChecked = scannedStudent ? (trackingMap[scannedStudent.nim] || false) : false;
 
   return createPortal(
     <AnimatePresence>
@@ -274,7 +324,9 @@ export function QRScannerModal({
                 <QrCode className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white tracking-tight">Pindai QR Code</h3>
+                <h3 className="text-sm font-bold text-white tracking-tight">
+                  {mode === 'tracking' ? 'QR Tracking Foto' : 'Pindai QR Code'}
+                </h3>
                 <p className="text-[10px] text-slate-400 font-medium">Logika 2026</p>
               </div>
             </div>
@@ -297,14 +349,30 @@ export function QRScannerModal({
                 className="absolute inset-0 z-40 bg-slate-950/95 backdrop-blur-xl p-6 flex flex-col justify-between overflow-y-auto"
               >
                 <div className="pt-16 pb-4 flex flex-col items-center text-center">
-                  {/* Badge */}
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-4">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Mahasiswa Ditemukan</span>
-                  </div>
+                  {/* Status Badge */}
+                  {checklistSuccess ? (
+                    <motion.div 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold mb-4 shadow-lg shadow-emerald-950"
+                    >
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span>Checklist Berhasil Dicatat!</span>
+                    </motion.div>
+                  ) : isAlreadyChecked ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-300 text-xs font-semibold mb-4">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Sudah Dichecklist</span>
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-4">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Mahasiswa Terdeteksi</span>
+                    </div>
+                  )}
 
                   {/* Student Avatar / Initials */}
-                  <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-2xl font-black shadow-xl shadow-blue-900/40 border-2 border-white/20 mb-4">
+                  <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 text-white flex items-center justify-center text-2xl font-black shadow-xl shadow-blue-900/40 border-2 border-white/20 mb-3">
                     {scannedStudent.namaLengkap
                       ? scannedStudent.namaLengkap
                           .split(' ')
@@ -326,22 +394,23 @@ export function QRScannerModal({
                     </p>
                   )}
 
-                  {/* Student Metadata Card */}
-                  <div className="w-full mt-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-left space-y-3">
-                    <div className="flex items-center justify-between text-xs pb-2.5 border-b border-slate-800/80">
-                      <span className="text-slate-400 font-medium">NIM</span>
-                      <span className="font-mono font-bold text-white tracking-wider bg-slate-800 px-2.5 py-0.5 rounded-lg border border-slate-700">
-                        {scannedStudent.nim || '-'}
+                  {/* Student Metadata Card with Prominent Kelompok */}
+                  <div className="w-full mt-4 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 text-left space-y-3 shadow-inner">
+                    {/* Kelompok Highlight Badge */}
+                    <div className="flex items-center justify-between text-xs pb-2.5 border-b border-slate-800 gap-2">
+                      <span className="text-slate-400 font-medium shrink-0 flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-blue-400" />
+                        Kelompok
+                      </span>
+                      <span className="font-extrabold text-blue-300 text-right bg-blue-950/60 px-2.5 py-1 rounded-lg border border-blue-800/60">
+                        {scannedStudent.kelompok || 'Belum ada kelompok'}
                       </span>
                     </div>
 
-                    <div className="flex items-start justify-between text-xs pb-2.5 border-b border-slate-800/80 gap-2">
-                      <span className="text-slate-400 font-medium shrink-0 flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-blue-400" />
-                        Kelompok
-                      </span>
-                      <span className="font-semibold text-slate-200 text-right">
-                        {scannedStudent.kelompok || 'Belum ada kelompok'}
+                    <div className="flex items-center justify-between text-xs pb-2.5 border-b border-slate-800">
+                      <span className="text-slate-400 font-medium">NIM</span>
+                      <span className="font-mono font-bold text-white tracking-wider bg-slate-800 px-2.5 py-0.5 rounded-lg border border-slate-700">
+                        {scannedStudent.nim || '-'}
                       </span>
                     </div>
 
@@ -358,36 +427,96 @@ export function QRScannerModal({
                     )}
                   </div>
 
-                  {currentUser && normalizeNim(currentUser.nim) === normalizeNim(scannedStudent.nim) && (
-                    <div className="mt-3 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs">
+                  {isScannedSelf && (
+                    <div className="mt-3 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
                       Ini adalah QR Code profil akun Anda sendiri.
                     </div>
                   )}
 
-                  <p className="text-xs text-slate-400 mt-4 leading-relaxed max-w-xs">
-                    Apakah ini mahasiswa yang ingin Anda tuju?
-                  </p>
+                  {!isScannedSelf && (
+                    <p className="text-xs text-slate-400 mt-3 leading-relaxed max-w-xs">
+                      {mode === 'tracking'
+                        ? isAlreadyChecked
+                          ? 'Foto bersama mahasiswa ini sudah tercatat dichecklist.'
+                          : 'Tekan tombol di bawah untuk menandai foto bersama secara instan.'
+                        : 'Apakah ini mahasiswa yang ingin Anda tuju?'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Actions */}
-                <div className="grid grid-cols-2 gap-3 pt-2 pb-2">
-                  <button
-                    type="button"
-                    onClick={handleRetry}
-                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all border border-slate-700 active:scale-95 cursor-pointer"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>Pindai Ulang</span>
-                  </button>
+                <div className="space-y-2 pt-2 pb-2">
+                  {/* Mode Tracking: Instant Checklist Button */}
+                  {mode === 'tracking' && !isScannedSelf && onChecklistStudent ? (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={handleExecuteChecklist}
+                        disabled={isProcessingChecklist}
+                        className={`w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95 cursor-pointer ${
+                          isAlreadyChecked
+                            ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                        }`}
+                      >
+                        {isProcessingChecklist ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : isAlreadyChecked ? (
+                          <RotateCcw className="w-4 h-4" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4" />
+                        )}
+                        <span>
+                          {isProcessingChecklist
+                            ? 'Menyimpan...'
+                            : isAlreadyChecked
+                              ? 'Batal / Hapus Checklist'
+                              : 'Ya, Checklist Foto'}
+                        </span>
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={handleConfirmStudent}
-                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer"
-                  >
-                    <span>Ya, Buka Detail</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={handleRetry}
+                          className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all border border-slate-700 active:scale-95 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Pindai Lain</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleConfirmStudent}
+                          className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 text-xs font-bold transition-all border border-blue-500/30 active:scale-95 cursor-pointer"
+                        >
+                          <span>Buka Detail</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Default Mode Actions */
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={handleRetry}
+                        className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all border border-slate-700 active:scale-95 cursor-pointer"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Pindai Ulang</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleConfirmStudent}
+                        className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer"
+                      >
+                        <span>Ya, Buka Detail</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ) : unrecognizedQrText ? (
@@ -435,32 +564,51 @@ export function QRScannerModal({
                 </div>
               </motion.div>
             ) : isShowingOwnQr ? (
-              /* 3. Own QR Code Display */
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-slate-950 z-20">
+              /* 3. Own QR Code Display with Group Highlighting */
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-950 z-20 overflow-y-auto">
+                <div className="mt-12 mb-3 text-center">
+                  <span className="px-3 py-1 bg-blue-500/20 border border-blue-500/40 text-blue-300 rounded-full text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1.5 mb-2">
+                    <UserCheck className="w-3.5 h-3.5" />
+                    QR Profil Anda
+                  </span>
+                  <h4 className="text-base font-bold text-white leading-snug">
+                    {currentUser?.namaLengkap || 'Profil Saya'}
+                  </h4>
+                  {currentUser?.kelompok && (
+                    <p className="text-xs font-bold text-blue-400 mt-0.5">
+                      {currentUser.kelompok}
+                    </p>
+                  )}
+                  {currentUser?.nim && (
+                    <p className="text-[11px] font-mono text-slate-400">
+                      NIM: {currentUser.nim}
+                    </p>
+                  )}
+                </div>
+
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-white p-6 rounded-[2.5rem] shadow-2xl border-4 border-blue-500/20"
+                  className="bg-white p-5 rounded-[2.5rem] shadow-2xl border-4 border-blue-500/20"
                 >
                   <QRCodeCanvas
                     value={getProfileUrl()}
-                    size={200}
+                    size={180}
                     level="H"
                     includeMargin={false}
                     imageSettings={{
                       src: `${window.location.origin}/favicon.ico`,
                       x: undefined,
                       y: undefined,
-                      height: 36,
-                      width: 36,
+                      height: 32,
+                      width: 32,
                       excavate: true,
                     }}
                   />
                 </motion.div>
-                <div className="mt-6 text-center">
-                  <h4 className="text-base font-bold text-white mb-1.5">QR Profil Saya</h4>
-                  <p className="text-xs text-slate-400 max-w-[220px] mx-auto leading-relaxed">
-                    Tunjukkan ini ke teman untuk memindai profil Anda secara langsung.
+                <div className="mt-4 text-center max-w-xs">
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Tunjukkan QR ini ke teman Anda saat foto bersama. Teman cukup scan untuk langsung mencatat checklist foto & mendeteksi kelompok Anda secara instan.
                   </p>
                 </div>
               </div>
@@ -518,59 +666,48 @@ export function QRScannerModal({
                         min-height: 100% !important;
                         object-fit: cover !important;
                         position: absolute !important;
-                        top: 0 !important;
-                        left: 0 !important;
+                        inset: 0 !important;
                       }
-                      #${scannerId}__scan_region {
-                        width: 100% !important;
-                        height: 100% !important;
-                        min-height: 100% !important;
-                      }
-                      #${scannerId}__dashboard_section,
-                      #${scannerId}__header_message,
-                      #${scannerId} img {
-                        display: none !important;
-                      }
+                      #${scannerId} img[alt="Info icon"] { display: none !important; }
+                      #${scannerId} div { border: none !important; }
                     `}</style>
-                    <div id={scannerId} className="w-full h-full absolute inset-0 overflow-hidden" />
-                  </>
-                )}
 
-                {/* Viewfinder Overlay */}
-                {!isInitializing && !error && (
-                  <>
-                    <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-                      <div className="relative w-[250px] h-[250px] sm:w-[270px] sm:h-[270px] rounded-3xl shadow-[0_0_0_9999px_rgba(2,6,23,0.6)]">
-                        {/* 4 Corner Brackets */}
-                        <div className="absolute -top-1 -left-1 w-9 h-9 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl shadow-sm" />
-                        <div className="absolute -top-1 -right-1 w-9 h-9 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl shadow-sm" />
-                        <div className="absolute -bottom-1 -left-1 w-9 h-9 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl shadow-sm" />
-                        <div className="absolute -bottom-1 -right-1 w-9 h-9 border-b-4 border-r-4 border-blue-500 rounded-br-2xl shadow-sm" />
+                    <div id={scannerId} className="w-full h-full bg-black relative" />
 
-                        {/* Focus Inner Border */}
-                        <div className="absolute inset-0 border border-white/20 rounded-3xl" />
+                    {/* Laser Scanner Reticle Frame */}
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 pointer-events-none">
+                      <div className="relative w-64 h-64 sm:w-72 sm:h-72">
+                        {/* 4 Glowing Corner Highlights */}
+                        <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
+                        <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
+                        <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
+                        <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-2xl shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
 
-                        {/* Animated Scanning Laser */}
+                        {/* Animated Laser Scanning Line */}
                         <motion.div
-                          animate={{ top: ['8%', '88%', '8%'] }}
-                          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-                          className="absolute left-3 right-3 h-[3px] bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-[0_0_16px_rgba(59,130,246,1)] z-20"
+                          animate={{ y: [0, 240, 0] }}
+                          transition={{
+                            duration: 2.2,
+                            repeat: Infinity,
+                            ease: 'easeInOut',
+                          }}
+                          className="w-full h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-[0_0_12px_rgba(96,165,250,1)]"
                         />
                       </div>
-                    </div>
 
-                    {/* Instruction Bottom Bar */}
-                    <div className="absolute bottom-20 left-0 right-0 p-4 z-30 flex flex-col items-center gap-3 pointer-events-none">
+                      {/* Instruction Pill */}
                       <motion.div
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        className="bg-slate-900/80 backdrop-blur-xl border border-white/15 rounded-2xl px-4 py-2 flex items-center gap-2.5 max-w-xs shadow-xl"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 px-4 py-2 bg-slate-950/80 backdrop-blur-md rounded-full border border-white/10 flex items-center gap-2 text-white shadow-xl pointer-events-auto"
                       >
-                        <div className="w-5 h-5 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/30">
+                        <div className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center">
                           <Info className="w-3 h-3" />
                         </div>
                         <p className="text-[11px] font-medium text-slate-100 leading-tight">
-                          Arahkan kamera ke QR Code teman untuk memindai
+                          {mode === 'tracking'
+                            ? 'Arahkan kamera ke QR teman untuk checklist foto'
+                            : 'Arahkan kamera ke QR Code teman untuk memindai'}
                         </p>
                       </motion.div>
                     </div>
@@ -591,7 +728,7 @@ export function QRScannerModal({
                   {isShowingOwnQr ? (
                     <>
                       <Scan className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs font-bold">Scan QR Teman</span>
+                      <span className="text-xs font-bold">Scan QR</span>
                     </>
                   ) : (
                     <>

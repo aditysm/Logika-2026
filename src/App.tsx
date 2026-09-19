@@ -368,7 +368,11 @@ export default function App() {
   };
 
   const handleClosePricing = () => {
-    navigate(-1);
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
   };
 
   const handleOpenTracking = () => {
@@ -376,7 +380,11 @@ export default function App() {
   };
 
   const handleCloseTracking = () => {
-    navigate(-1);
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
   };
 
   const handleOpenUploadPhoto = (student: Mahasiswa) => {
@@ -414,7 +422,11 @@ export default function App() {
   };
 
   const handleCloseUploadPhoto = () => {
-    navigate(-1);
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
   };
 
   const handleOpenEditProfile = () => {
@@ -422,7 +434,11 @@ export default function App() {
   };
 
   const handleCloseEditProfile = () => {
-    navigate(-1);
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
   };
 
   // Current active logged-in user
@@ -454,13 +470,28 @@ export default function App() {
     const found = findStudentInList(students, nim);
     const name = found ? (found.namaPanggilan || found.namaLengkap) : nim;
 
-    // Check if there was a pending upload target before login
-    if (pendingUploadTarget) {
-      const target = pendingUploadTarget;
+    // Check search params for return destination
+    const params = new URLSearchParams(location.search);
+    const returnTo = params.get('return');
+    const returnNim = params.get('nim');
+
+    if (returnTo === 'tracking') {
+      navigate('/tracking');
+      setToastMessage(`Selamat datang, ${name}! Membuka Photo Tracking...`);
+    } else if (returnTo === 'pricing') {
+      navigate('/pricing');
+      setToastMessage(`Selamat datang, ${name}! Membuka Akses Premium...`);
+    } else if (returnTo === 'profile') {
+      navigate('/profile');
+      setToastMessage(`Selamat datang, ${name}! Membuka Edit Profil...`);
+    } else if (returnTo === 'upload' || pendingUploadTarget) {
+      const target = pendingUploadTarget || (returnNim ? findStudentInList(students, returnNim) : null);
       setPendingUploadTarget(null);
 
-      // Check if logged in user is the same as the target
-      if (found && (found.nim === target.nim || found.id === target.id)) {
+      if (!target) {
+        navigate('/');
+        setToastMessage(`Selamat datang, ${name}!`);
+      } else if (found && (found.nim === target.nim || found.id === target.id)) {
         navigate('/');
         setToastMessage(`Selamat datang, ${name}! Ini profil Anda sendiri.`);
         setTimeout(() => setToastMessage(null), 3500);
@@ -484,6 +515,9 @@ export default function App() {
           setTimeout(() => setToastMessage(null), 4000);
         }
       }
+    } else if (returnTo && returnTo.startsWith('/')) {
+      navigate(returnTo);
+      setToastMessage(`Selamat datang, ${name}!`);
     } else {
       navigate('/');
       setToastMessage(`Selamat datang, ${name}!`);
@@ -743,7 +777,12 @@ export default function App() {
             <Route
               path="/"
               element={
-                !currentUserNim && !isGuestMode ? (
+                isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-3">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <p className="text-xs text-slate-500 font-medium">Memuat direktori data mahasiswa...</p>
+                  </div>
+                ) : !currentUserNim && !isGuestMode ? (
                   <Navigate to="/login" replace />
                 ) : (
                   <MainListView
@@ -782,8 +821,21 @@ export default function App() {
             <Route
               path="/login"
               element={
-                currentUserNim ? (
-                  <Navigate to="/" replace />
+                isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-3">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <p className="text-xs text-slate-500 font-medium">Memuat data akun...</p>
+                  </div>
+                ) : currentUserNim && currentUser ? (
+                  (() => {
+                    const params = new URLSearchParams(location.search);
+                    const returnTo = params.get('return');
+                    if (returnTo === 'tracking') return <Navigate to="/tracking" replace />;
+                    if (returnTo === 'pricing') return <Navigate to="/pricing" replace />;
+                    if (returnTo === 'profile') return <Navigate to="/profile" replace />;
+                    if (returnTo && returnTo.startsWith('/')) return <Navigate to={returnTo} replace />;
+                    return <Navigate to="/" replace />;
+                  })()
                 ) : (
                   <motion.div
                     key="login"
@@ -797,6 +849,7 @@ export default function App() {
                       onContinueWithoutAccount={handleContinueWithoutAccount}
                       students={students}
                       isLoading={isLoading}
+                      targetStudentForUpload={pendingUploadTarget}
                     />
                   </motion.div>
                 )
@@ -847,7 +900,12 @@ export default function App() {
             <Route
               path="/upload/:nim"
               element={
-                currentUser && uploadTargetStudent ? (
+                isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-3">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <p className="text-xs text-slate-500 font-medium">Memuat data...</p>
+                  </div>
+                ) : currentUser && uploadTargetStudent ? (
                   <motion.div
                     key={`upload-photo-${uploadTargetStudent.id}`}
                     initial={{ opacity: 0, y: 12 }}
@@ -864,14 +922,26 @@ export default function App() {
                     />
                   </motion.div>
                 ) : (
-                  <Navigate to="/login" replace />
+                  <Navigate
+                    to={
+                      uploadTargetStudent
+                        ? `/login?return=upload&nim=${encodeURIComponent(uploadTargetStudent.nim || uploadTargetStudent.id)}`
+                        : '/login'
+                    }
+                    replace
+                  />
                 )
               }
             />
             <Route
               path="/profile"
               element={
-                currentUser ? (
+                isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-3">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <p className="text-xs text-slate-500 font-medium">Memuat profil akun...</p>
+                  </div>
+                ) : currentUser ? (
                   <motion.div
                     key="edit-profile"
                     initial={{ opacity: 0, y: 12 }}
@@ -887,14 +957,19 @@ export default function App() {
                     />
                   </motion.div>
                 ) : (
-                  <Navigate to="/login" replace />
+                  <Navigate to="/login?return=profile" replace />
                 )
               }
             />
             <Route
               path="/pricing"
               element={
-                currentUser ? (
+                isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-3">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <p className="text-xs text-slate-500 font-medium">Memuat akses premium...</p>
+                  </div>
+                ) : currentUser ? (
                   <motion.div
                     key="pricing-page"
                     initial={{ opacity: 0, y: 12 }}
@@ -910,14 +985,19 @@ export default function App() {
                     />
                   </motion.div>
                 ) : (
-                  <Navigate to="/login" replace />
+                  <Navigate to="/login?return=pricing" replace />
                 )
               }
             />
             <Route
               path="/tracking"
               element={
-                currentUser ? (
+                isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-3">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <p className="text-xs text-slate-500 font-medium">Memuat data tracking foto...</p>
+                  </div>
+                ) : currentUser ? (
                   <motion.div
                     key="tracking-page"
                     initial={{ opacity: 0, y: 12 }}
@@ -931,10 +1011,11 @@ export default function App() {
                       photoRecords={photoRecords}
                       refreshKey={refreshKey}
                       onBack={handleCloseTracking}
+                      onSelectStudent={handleSelectStudent}
                     />
                   </motion.div>
                 ) : (
-                  <Navigate to="/login" replace />
+                  <Navigate to="/login?return=tracking" replace />
                 )
               }
             />

@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, Loader2, LogIn, Search, ShieldCheck, UserCheck, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, Loader2, LogIn, Search, ShieldCheck, Sparkles, UserCheck, X } from 'lucide-react';
 import { Mahasiswa } from '../types';
 import { findStudentInList } from '../lib/photoStorage';
 
@@ -19,6 +20,10 @@ export function LoginPage({
   onContinueWithoutAccount,
   targetStudentForUpload,
 }: LoginPageProps) {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const returnParam = searchParams.get('return');
+
   const [nimInput, setNimInput] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [toastError, setToastError] = useState<string | null>(null);
@@ -118,7 +123,7 @@ export function LoginPage({
           className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-xs"
         >
           {/* If redirected from Upload Photo button */}
-          {targetStudentForUpload && (
+          {targetStudentForUpload ? (
             <div className="mb-4 p-3 rounded-2xl bg-blue-50/80 border border-blue-200/80 text-xs text-blue-900 flex items-start gap-2.5">
               <Camera className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <div>
@@ -130,7 +135,43 @@ export function LoginPage({
                 </p>
               </div>
             </div>
-          )}
+          ) : returnParam === 'tracking' ? (
+            <div className="mb-4 p-3 rounded-2xl bg-blue-50/80 border border-blue-200/80 text-xs text-blue-900 flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-blue-950">
+                  Akses Photo Tracking
+                </p>
+                <p className="text-[11px] text-blue-700 mt-0.5">
+                  Silakan masuk ke akun Anda terlebih dahulu untuk mengakses checklist foto bersama dan fitur QR.
+                </p>
+              </div>
+            </div>
+          ) : returnParam === 'pricing' ? (
+            <div className="mb-4 p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-950">
+                  Akses Fitur Premium
+                </p>
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  Silakan masuk ke akun Anda terlebih dahulu untuk melihat pilihan paket akun & mengaktifkan fitur premium.
+                </p>
+              </div>
+            </div>
+          ) : returnParam === 'profile' ? (
+            <div className="mb-4 p-3 rounded-2xl bg-blue-50/80 border border-blue-200/80 text-xs text-blue-900 flex items-start gap-2.5">
+              <UserCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-blue-950">
+                  Akses Edit Profil
+                </p>
+                <p className="text-[11px] text-blue-700 mt-0.5">
+                  Silakan masuk ke akun Anda terlebih dahulu untuk mengedit profil biodata dan foto.
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           {/* Header */}
           <div className="text-center mb-5 sm:mb-6">
@@ -143,6 +184,10 @@ export function LoginPage({
             <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
               {targetStudentForUpload
                 ? 'Identifikasi diri Anda untuk mencatat foto bersama ke database.'
+                : returnParam === 'tracking'
+                ? 'Masuk ke akun Anda untuk membuka halaman Photo Tracking.'
+                : returnParam === 'pricing'
+                ? 'Masuk ke akun Anda untuk membuka halaman Akses Premium.'
                 : 'Masukkan NIM Anda untuk mengakses progress foto bersama dan profil pribadi.'}
             </p>
           </div>

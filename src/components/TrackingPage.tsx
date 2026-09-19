@@ -9,7 +9,12 @@ import {
   User,
   Camera,
   Check,
-  ChevronDown
+  ChevronDown,
+  QrCode,
+  Scan,
+  UserCheck,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import { Mahasiswa, PhotoRecord } from '../types';
 import { 
@@ -17,6 +22,7 @@ import {
   upsertPhotoTrackingInSupabase 
 } from '../lib/supabase';
 import { CustomSelect } from './CustomSelect';
+import { QRScannerModal } from './QRScannerModal';
 
 interface TrackingPageProps {
   currentUser: Mahasiswa | null;
@@ -24,6 +30,7 @@ interface TrackingPageProps {
   photoRecords: PhotoRecord[];
   onBack: () => void;
   refreshKey?: number;
+  onSelectStudent?: (student: Mahasiswa) => void;
 }
 
 export function TrackingPage({ 
@@ -31,14 +38,20 @@ export function TrackingPage({
   students, 
   photoRecords, 
   onBack,
-  refreshKey = 0
+  refreshKey = 0,
+  onSelectStudent,
 }: TrackingPageProps) {
   const [trackingMap, setTrackingMap] = useState<Record<string, boolean>>({});
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get current user NIM - matching new schema where user_id references profiles.nim
+  // QR Modal States
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isShowingOwnQrInitial, setIsShowingOwnQrInitial] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Get current user NIM - matching schema where user_id references profiles.nim
   const userKey = currentUser?.nim;
 
   const loadTracking = async (showSkeleton = false) => {
@@ -84,6 +97,44 @@ export function TrackingPage({
     }
   };
 
+  // Handler saat mahasiswa di-scan via QR di Tracking
+  const handleChecklistFromQr = async (scannedStudent: Mahasiswa) => {
+    if (!userKey || scannedStudent.nim === currentUser?.nim) return;
+    const currentState = trackingMap[scannedStudent.nim] || false;
+    const newState = !currentState;
+
+    // Auto-update filter kelompok ke kelompok mahasiswa yang baru discan & dichecklist
+    if (scannedStudent.kelompok) {
+      setSelectedGroup(scannedStudent.kelompok);
+    }
+
+    // Optimistic update
+    setTrackingMap(prev => ({ ...prev, [scannedStudent.nim]: newState }));
+
+    const success = await upsertPhotoTrackingInSupabase(userKey, scannedStudent.nim, newState);
+    if (success) {
+      const msg = newState
+        ? `✅ Berhasil checklist foto bersama ${scannedStudent.namaLengkap} (${scannedStudent.kelompok || 'Kelompok'})!`
+        : `Checklist foto bersama ${scannedStudent.namaLengkap} telah dibatalkan.`;
+      
+      setToastMessage(msg);
+      setTimeout(() => setToastMessage(null), 4000);
+    } else {
+      // Rollback
+      setTrackingMap(prev => ({ ...prev, [scannedStudent.nim]: currentState }));
+    }
+  };
+
+  const openQrScanner = () => {
+    setIsShowingOwnQrInitial(false);
+    setIsScannerOpen(true);
+  };
+
+  const openMyQr = () => {
+    setIsShowingOwnQrInitial(true);
+    setIsScannerOpen(true);
+  };
+
   const groupOptions = useMemo(() => {
     const set = new Set<string>();
     students.forEach(s => {
@@ -125,8 +176,37 @@ export function TrackingPage({
     );
   };
 
+  const checkedCount = Object.values(trackingMap).filter(v => v).length;
+  const totalTarget = Math.max(1, students.length - 1);
+  const progressPercent = Math.round((checkedCount / totalTarget) * 100);
+
   return (
     <div className="max-w-4xl mx-auto px-4 pb-20 space-y-5">
+      {/* Toast Notification Alert */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-5 left-4 right-4 sm:left-auto sm:right-6 z-[9999] max-w-md bg-slate-950/95 border border-emerald-500/40 text-white px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center justify-between gap-3"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <p className="text-xs font-bold text-slate-100 truncate">{toastMessage}</p>
+            </div>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex flex-col gap-3">
         <button
@@ -139,19 +219,56 @@ export function TrackingPage({
           <span className="text-xs font-bold uppercase tracking-wider">Beranda</span>
         </button>
 
-        <div className="flex items-end justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="space-y-0.5">
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Photo Tracking</h1>
-            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">Progress Checklist Anda</p>
+            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">
+              Progress Checklist Foto Bersama ({progressPercent}%)
+            </p>
           </div>
           
-          <div className="bg-blue-600 text-white px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-200">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-black uppercase tracking-wider">
-              {Object.values(trackingMap).filter(v => v).length} / {students.length - 1}
-            </span>
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-600 text-white px-3.5 py-1.5 rounded-xl flex items-center gap-2 shadow-md shadow-blue-200">
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="text-xs font-black uppercase tracking-wider">
+                {checkedCount} / {totalTarget}
+              </span>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Quick QR Action Bar (Scan QR & QR Saya) */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+        {/* Tombol 1: Scan QR */}
+        <button
+          type="button"
+          onClick={openQrScanner}
+          className="flex items-center justify-center gap-2.5 p-3 sm:p-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl shadow-md shadow-blue-500/20 font-black text-xs sm:text-sm transition-all active:scale-[0.98] cursor-pointer"
+        >
+          <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center">
+            <Scan className="w-4 h-4 text-white" />
+          </div>
+          <div className="text-left">
+            <div className="leading-tight">Scan QR</div>
+            <div className="text-[10px] font-medium text-blue-100 leading-tight">Checklist Cepat</div>
+          </div>
+        </button>
+
+        {/* Tombol 2: Tampilkan QR Saya */}
+        <button
+          type="button"
+          onClick={openMyQr}
+          className="flex items-center justify-center gap-2.5 p-3 sm:p-3.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-2xl shadow-xs font-black text-xs sm:text-sm transition-all active:scale-[0.98] cursor-pointer"
+        >
+          <div className="w-7 h-7 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+            <QrCode className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="text-left">
+            <div className="leading-tight">QR Saya</div>
+            <div className="text-[10px] font-medium text-slate-400 leading-tight">Buka Kode QR</div>
+          </div>
+        </button>
       </div>
 
       {/* Group Navigation & Search */}
@@ -175,8 +292,29 @@ export function TrackingPage({
               placeholder="Cari nama atau NIM..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all font-bold"
+              className="w-full pl-10 pr-24 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all font-bold"
             />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-1.5 gap-1">
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                  title="Hapus pencarian"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={openQrScanner}
+                className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition-all border border-blue-100 text-[10px] font-black uppercase cursor-pointer"
+                title="Pindai QR"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Pindai</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -223,20 +361,24 @@ export function TrackingPage({
                           <p className={`text-sm font-black leading-tight ${isMe ? 'text-blue-700' : 'text-slate-900'}`}>
                             {student.namaLengkap}
                           </p>
-                          <span className="text-slate-400 font-medium text-[11px]">({student.namaPanggilan})</span>
+                          {student.namaPanggilan && (
+                            <span className="text-slate-400 font-medium text-[11px]">({student.namaPanggilan})</span>
+                          )}
                           {isMe && (
                             <span className="px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase rounded-md tracking-wider shrink-0">SAYA</span>
                           )}
                         </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">
-                          {student.nim}
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                            {student.nim}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Status Column - Compact */}
                       <div className="flex items-center gap-3 pr-1 shrink-0">
                         {uploaded ? (
-                          <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-100" title="Foto Terupload">
+                          <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-100" title="Foto Terupload ke Drive">
                             <Camera className="w-3.5 h-3.5" />
                             <Check className="w-2.5 h-2.5" />
                           </div>
@@ -274,7 +416,7 @@ export function TrackingPage({
         </div>
       </div>
       
-      {/* Redesigned Legend - More Intuitive */}
+      {/* Legend */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -286,20 +428,37 @@ export function TrackingPage({
             </div>
             <div className="flex items-center gap-2.5">
               <div className="w-5 h-5 bg-emerald-500 rounded-lg flex items-center justify-center text-white shadow-sm">
-                <Camera className="w-3 h-3" />
+                <Camera className="w-3.5 h-3.5" />
               </div>
-              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Status Upload</span>
+              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Status Upload Drive</span>
             </div>
           </div>
           <div className="hidden sm:block text-right">
-             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Status Progres</p>
-             <p className="text-[10px] font-black text-slate-900 uppercase">Foto = Progres</p>
+             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Checklist Cepat</p>
+             <p className="text-[10px] font-black text-blue-600 uppercase">Gunakan Scan QR untuk Efisiensi</p>
           </div>
         </div>
       </div>
+
+      {/* QR Scanner Modal for Tracking */}
+      <QRScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        students={students}
+        currentUser={currentUser}
+        mode="tracking"
+        trackingMap={trackingMap}
+        onChecklistStudent={handleChecklistFromQr}
+        onSelectStudent={(student) => {
+          if (student.kelompok) {
+            setSelectedGroup(student.kelompok);
+          }
+          if (onSelectStudent) {
+            onSelectStudent(student);
+          }
+        }}
+        initialShowOwnQr={isShowingOwnQrInitial}
+      />
     </div>
   );
 }
-
-
-
