@@ -634,23 +634,42 @@ export async function fetchPhotoTrackingFromSupabase(
   }
 }
 
-// Upsert photo tracking record
+// Upsert photo tracking record (bidirectional / reciprocal sync between user A & user B)
 export async function upsertPhotoTrackingInSupabase(
   userKey: string,
   targetNim: string,
   isChecked: boolean
 ): Promise<boolean> {
   const supabase = getSupabaseClient();
-  if (!supabase || !userKey) return false;
+  if (!supabase || !userKey || !targetNim) return false;
 
   try {
-    const { error } = await supabase.from(DEFAULT_PHOTO_TRACKING_TABLE).upsert(
+    const cleanUser = userKey.trim();
+    const cleanTarget = targetNim.trim();
+    const now = new Date().toISOString();
+
+    // Reciprocal / bidirectional tracking:
+    // If User A marks User B, also mark User B for User A so both users have the checklist filled in real-time
+    const records = [
       {
-        user_id: userKey,
-        target_nim: targetNim,
+        user_id: cleanUser,
+        target_nim: cleanTarget,
         is_checked: isChecked,
-        updated_at: new Date().toISOString()
+        updated_at: now,
       },
+    ];
+
+    if (cleanUser.toLowerCase().replace(/[\/\s_-]/g, '') !== cleanTarget.toLowerCase().replace(/[\/\s_-]/g, '')) {
+      records.push({
+        user_id: cleanTarget,
+        target_nim: cleanUser,
+        is_checked: isChecked,
+        updated_at: now,
+      });
+    }
+
+    const { error } = await supabase.from(DEFAULT_PHOTO_TRACKING_TABLE).upsert(
+      records,
       { onConflict: 'user_id,target_nim' }
     );
 

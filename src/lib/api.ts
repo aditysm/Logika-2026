@@ -220,6 +220,8 @@ export async function uploadFotoBersama(params: {
   nimB: string; // Target student (User B)
   namaA?: string;
   namaB?: string;
+  kelompokA?: string;
+  kelompokB?: string;
   folderIdA?: string; // Uploader's Drive folder ID
   folderIdB?: string; // Target student's Drive folder ID
   totalFotoA?: number;
@@ -235,6 +237,8 @@ export async function uploadFotoBersama(params: {
     nimB,
     namaA = 'Mahasiswa A',
     namaB = params.namaTeman || 'Mahasiswa B',
+    kelompokA = '',
+    kelompokB = '',
     folderIdA = '',
     folderIdB = params.folderIdTarget || '',
     totalFotoA = params.totalFotoSekarang || 0,
@@ -256,10 +260,14 @@ export async function uploadFotoBersama(params: {
   const cleanNameA = (namaA || 'Mahasiswa').replace(/[/\\?%*:|"<>]/g, '').trim();
   const cleanNameB = (namaB || 'Mahasiswa').replace(/[/\\?%*:|"<>]/g, '').trim();
 
-  // File name for User A's folder: Target Student B's name & NIM
-  const fileNameA = `${totalFotoA + 1}. ${cleanNameB}_${cleanNimB}${rawExt}`;
-  // File name for User B's folder: Uploader Student A's name & NIM
-  const fileNameB = `${totalFotoB + 1}. ${cleanNameA}_${cleanNimA}${rawExt}`;
+  // Extract numeric group ID if present, otherwise default to sequence
+  const groupIdA = kelompokA?.match(/\d+/)?.[0] || String(totalFotoB + 1);
+  const groupIdB = kelompokB?.match(/\d+/)?.[0] || String(totalFotoA + 1);
+
+  // File name for User A's folder: Group ID of B _ Target Student B's name _ NIM B
+  const fileNameA = `${groupIdB}_${cleanNameB}_${cleanNimB}${rawExt}`;
+  // File name for User B's folder: Group ID of A _ Uploader Student A's name _ NIM A
+  const fileNameB = `${groupIdA}_${cleanNameA}_${cleanNimA}${rawExt}`;
 
   // Ensure folder IDs are valid strings (never empty, fallback to default master folder)
   const cleanFolderIdA =
@@ -281,6 +289,8 @@ export async function uploadFotoBersama(params: {
   // Optional and helper fields
   formData.append('user_a_nama', cleanNameA);
   formData.append('user_b_nama', cleanNameB);
+  formData.append('user_a_kelompok', kelompokA || '');
+  formData.append('user_b_kelompok', kelompokB || '');
   formData.append('file_name_a', fileNameA);
   formData.append('file_name_b', fileNameB);
   formData.append('name_a', fileNameA);

@@ -826,6 +826,7 @@ export default function App() {
                           ? getPhotoWithTarget(photoRecords, currentUser.nim, selectedStudent.nim)
                           : undefined
                       }
+                      refreshKey={refreshKey}
                       onOpenUploadModal={handleOpenUploadPhoto}
                       onViewPhoto={(rec) => setViewingPhotoRecord(rec)}
                       onEditProfile={handleOpenEditProfile}

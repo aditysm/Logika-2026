@@ -54,6 +54,7 @@ interface StudentDetailViewProps {
   currentUser?: Mahasiswa | null;
   photoRecord?: PhotoRecord;
   photoRecords?: PhotoRecord[];
+  refreshKey?: number;
   onOpenUploadModal?: (student: Mahasiswa) => void;
   onViewPhoto?: (photoRecord: PhotoRecord) => void;
   onEditProfile?: () => void;
@@ -70,6 +71,7 @@ export function StudentDetailView({
   currentUser,
   photoRecord,
   photoRecords = [],
+  refreshKey = 0,
   onOpenUploadModal,
   onViewPhoto,
   onEditProfile,
@@ -100,8 +102,10 @@ export function StudentDetailView({
     window.scrollTo({ top: 0, behavior: 'instant' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
+  }, [student.id]);
 
-    // Load tracking status
+  // Load tracking status on mount, user/student change, or realtime refreshKey trigger
+  useEffect(() => {
     const loadTrackingStatus = async () => {
       if (userKey && student.nim) {
         setIsTrackingLoading(true);
@@ -111,7 +115,7 @@ export function StudentDetailView({
       }
     };
     loadTrackingStatus();
-  }, [student.id, student.nim, userKey]);
+  }, [student.nim, userKey, refreshKey]);
 
   // Find index for Prev / Next navigation
   const currentIndex = allStudents.findIndex((s) => s.id === student.id);
