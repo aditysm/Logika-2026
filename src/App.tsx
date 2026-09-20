@@ -546,12 +546,21 @@ export default function App() {
 
     // Save to Supabase photo_logs in background
     if (recordData.uploaderNim && recordData.targetNim) {
-      // 1. Save the photo log
-      savePhotoLogToSupabase(
-        recordData.uploaderNim,
-        recordData.targetNim,
-        recordData.photoUrl
-      ).catch((e) => console.warn('Supabase photo log background save error:', e));
+      // 1. Save the photo log only if Drive file ID or valid URL is present
+      if (recordData.driveFileIdA || recordData.driveFileIdB || recordData.photoUrlA || recordData.photoUrlB) {
+        savePhotoLogToSupabase(
+          recordData.uploaderNim,
+          recordData.targetNim,
+          undefined,
+          undefined,
+          {
+            driveFileIdA: recordData.driveFileIdA,
+            driveFileIdB: recordData.driveFileIdB,
+            photoUrlA: recordData.photoUrlA,
+            photoUrlB: recordData.photoUrlB,
+          }
+        ).catch((e) => console.warn('Supabase photo log background save error:', e));
+      }
 
       // 2. Automatically mark as finished in tracking (Trigger "Sudah Selesai")
       upsertPhotoTrackingInSupabase(

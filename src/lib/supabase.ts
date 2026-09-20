@@ -409,14 +409,34 @@ export async function savePhotoLogToSupabase(
     const sortedNims = [cleanNimA, cleanNimB].sort();
     const pairKey = `${sortedNims[0]}_${sortedNims[1]}`;
 
+    // Sanitization: NEVER send raw Base64 / data:image URIs to Supabase database
+    const sanitizeUrl = (url?: string | null): string | null => {
+      if (!url || typeof url !== 'string') return null;
+      const trimmed = url.trim();
+      if (trimmed.startsWith('data:') || trimmed.length > 500) {
+        return null;
+      }
+      return trimmed;
+    };
+
+    const cleanPhotoUrlA = sanitizeUrl(extra?.photoUrlA) || sanitizeUrl(photoUrl);
+    const cleanPhotoUrlB = sanitizeUrl(extra?.photoUrlB) || sanitizeUrl(photoUrl);
+    const cleanDriveIdA = extra?.driveFileIdA || driveFileId || null;
+    const cleanDriveIdB = extra?.driveFileIdB || driveFileId || null;
+
+    // Only proceed if there is valid Drive metadata to update or record
+    if (!cleanDriveIdA && !cleanDriveIdB && !cleanPhotoUrlA && !cleanPhotoUrlB) {
+      return true; // No valid drive metadata to overwrite, skip gracefully
+    }
+
     const payload: Record<string, unknown> = {
       pair_key: pairKey,
       user_a_nim: cleanNimA,
       user_b_nim: cleanNimB,
-      photo_url_a: extra?.photoUrlA || photoUrl || null,
-      photo_url_b: extra?.photoUrlB || photoUrl || null,
-      drive_file_id_a: extra?.driveFileIdA || driveFileId || null,
-      drive_file_id_b: extra?.driveFileIdB || driveFileId || null,
+      photo_url_a: cleanPhotoUrlA,
+      photo_url_b: cleanPhotoUrlB,
+      drive_file_id_a: cleanDriveIdA,
+      drive_file_id_b: cleanDriveIdB,
     };
 
     const { error } = await supabase.from(DEFAULT_PHOTO_LOGS_TABLE).upsert(
