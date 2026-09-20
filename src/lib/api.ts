@@ -8,9 +8,9 @@ import { getIntuitiveErrorMessage } from './errorHandler';
 export const SUPABASE_EDGE_FUNCTION_URL =
   'https://fwhapumjpfbqirmqqwrm.supabase.co/functions/v1/logika';
 
-export const DEFAULT_DRIVE_FOLDER_ID = '1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX';
+export const DEFAULT_DRIVE_FOLDER_ID = '1MuAMDF9gyKuOjGwBiT8vWvVuyfFAELSd';
 export const DEFAULT_DRIVE_FOLDER_URL =
-  'https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX';
+  'https://drive.google.com/drive/folders/1MuAMDF9gyKuOjGwBiT8vWvVuyfFAELSd';
 
 export interface UpdateProfileParams {
   nim: string;
@@ -269,11 +269,11 @@ export async function uploadFotoBersama(params: {
   // File name for User B's folder: Group ID of A _ Uploader Student A's name _ NIM A
   const fileNameB = `${groupIdA}_${cleanNameA}_${cleanNimA}${rawExt}`;
 
-  // Ensure folder IDs are valid strings (never empty, fallback to default master folder)
+  // Ensure folder IDs are valid strings (never empty, fallback to default master system folder)
   const cleanFolderIdA =
     extractDriveFolderId(folderIdA) || DEFAULT_DRIVE_FOLDER_ID;
   const cleanFolderIdB =
-    extractDriveFolderId(folderIdB) || cleanFolderIdA || DEFAULT_DRIVE_FOLDER_ID;
+    extractDriveFolderId(folderIdB) || DEFAULT_DRIVE_FOLDER_ID;
 
   // Re-create File objects to ensure file.name in browser FormData is explicitly set
   const renamedFileA = new File([file], fileNameA, { type: file.type || 'image/jpeg' });

@@ -164,8 +164,8 @@ export function UploadPhotoPage({
           namaB: targetStudent.namaLengkap,
           kelompokA: currentUser.kelompok,
           kelompokB: targetStudent.kelompok,
-          folderIdA: currentUser.driveFolderUrl || targetStudent.driveFolderUrl || '',
-          folderIdB: targetStudent.driveFolderUrl || currentUser.driveFolderUrl || '',
+          folderIdA: currentUser.driveFolderUrl || '',
+          folderIdB: targetStudent.driveFolderUrl || '',
           totalFotoA: photoRecords.filter(
             (r) =>
               r.uploaderNim?.toLowerCase() === currentUser.nim?.toLowerCase() ||

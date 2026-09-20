@@ -111,9 +111,13 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
     return 'Terjadi kendala saat membaca data dari database. Silakan coba lagi nanti.';
   }
 
-  // If rawMessage is relatively concise and friendly, format it nicely
-  if (rawMessage.length > 0 && rawMessage.length < 120 && !rawMessage.startsWith('{')) {
-    return `${rawMessage}. Silakan coba lagi nanti.`;
+  // If rawMessage is already an informative user-facing message, return it directly
+  if (rawMessage.length > 0 && rawMessage.length < 300 && !rawMessage.startsWith('{') && !rawMessage.startsWith('<!DOCTYPE')) {
+    const trimmed = rawMessage.trim();
+    if (trimmed.endsWith('.') || trimmed.endsWith('!') || trimmed.endsWith('?')) {
+      return trimmed;
+    }
+    return `${trimmed}. Silakan coba lagi nanti.`;
   }
 
   return `${fallbackMessage} Silakan coba lagi nanti.`;

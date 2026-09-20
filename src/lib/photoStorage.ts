@@ -224,23 +224,65 @@ export function getPhotoRecords(): PhotoRecord[] {
   return memoryPhotoCache;
 }
 
+/**
+ * Helper to strip heavy base64 strings from photo records before saving to localStorage.
+ * Full images are stored safely in IndexedDB and in-memory cache without quota limits.
+ */
+function sanitizeForLocalStorage(records: PhotoRecord[]): PhotoRecord[] {
+  return records.map((r) => {
+    const isHeavyDataUrl =
+      typeof r.photoUrl === 'string' &&
+      (r.photoUrl.startsWith('data:image/') || r.photoUrl.length > 500);
+
+    if (isHeavyDataUrl) {
+      return {
+        ...r,
+        photoUrl: undefined,
+      };
+    }
+    return r;
+  });
+}
+
+// Self-healing: Sanitize any existing bloated records in localStorage on module initialization
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    const raw = localStorage.getItem(PHOTO_STORAGE_KEY);
+    if (raw && (raw.includes('data:image/') || raw.length > 200000)) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const sanitized = sanitizeForLocalStorage(parsed);
+        localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(sanitized));
+      }
+    }
+  } catch {
+    // If it fails or is unparseable, safely ignore or reset
+  }
+}
+
 export function syncToLocalStorage(records: PhotoRecord[]): void {
   try {
-    localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(records));
-  } catch (err) {
-    console.warn('localStorage full, saving lightweight metadata cache to localStorage:', err);
+    const lightweight = sanitizeForLocalStorage(records);
+    localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(lightweight));
+  } catch {
+    // If localStorage is still constrained by other storage items, handle silently
     try {
-      // Strip heavy base64 strings so metadata persists in localStorage without exceeding 5MB quota
-      const lightweight = records.map((r) => ({
-        ...r,
-        photoUrl:
-          r.photoUrl && r.photoUrl.startsWith('data:image/') && r.photoUrl.length > 500
-            ? undefined
-            : r.photoUrl,
+      // Emergency fallback: only keep minimal IDs and flags
+      const minimal = records.map((r) => ({
+        id: r.id,
+        uploaderNim: r.uploaderNim,
+        targetNim: r.targetNim,
+        uploaderNama: r.uploaderNama,
+        targetNama: r.targetNama,
+        timestamp: r.timestamp,
+        photoFileName: r.photoFileName,
+        driveFileIdA: r.driveFileIdA,
+        driveFileIdB: r.driveFileIdB,
+        driveFolderUrl: r.driveFolderUrl,
       }));
-      localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(lightweight));
+      localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(minimal));
     } catch {
-      // Ignore if localStorage quota is completely full
+      // Entirely safe fallback: ignore localStorage write, records remain active in IndexedDB & memory
     }
   }
 }
