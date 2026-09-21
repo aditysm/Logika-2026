@@ -691,27 +691,32 @@ export async function fetchPhotoTrackingFromSupabase(
 
   try {
     // Query photo_tracking for this user
-    let { data, error } = await supabase
+    let rowsData: Record<string, unknown>[] | null = null;
+    const { data, error } = await supabase
       .from(DEFAULT_PHOTO_TRACKING_TABLE)
       .select('target_nim, is_checked, user_id')
       .eq('user_id', cleanUser);
 
-    if (error || !data) {
+    if (!error && data) {
+      rowsData = data as Record<string, unknown>[];
+    } else {
       const retry = await supabase
         .from(DEFAULT_PHOTO_TRACKING_TABLE)
         .select('target_nim, is_checked, nim')
         .eq('nim', cleanUser);
       if (!retry.error && retry.data) {
-        data = retry.data;
+        rowsData = retry.data as Record<string, unknown>[];
       }
     }
 
     const trackingMap: Record<string, boolean> = {};
-    if (data) {
-      data.forEach((row: { target_nim?: string; is_checked?: boolean }) => {
-        if (row.target_nim) {
-          const isTrue = row.is_checked === true || String(row.is_checked) === 'true';
-          const targetStr = String(row.target_nim);
+    if (rowsData) {
+      rowsData.forEach((row) => {
+        const targetNim = row.target_nim as string | undefined;
+        const isChecked = row.is_checked as boolean | string | undefined;
+        if (targetNim) {
+          const isTrue = isChecked === true || String(isChecked) === 'true';
+          const targetStr = String(targetNim);
           const cleanTarget = targetStr.trim();
           const normTarget = cleanTarget.toLowerCase().replace(/[\/\s_-]/g, '');
 

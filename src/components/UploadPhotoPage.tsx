@@ -248,7 +248,6 @@ export function UploadPhotoPage({
 
     setIsSubmitting(false);
     setIsConfirmModalOpen(false);
-    onBack();
   };
 
   const handleSaveLocalDraftOnly = () => {
@@ -264,7 +263,6 @@ export function UploadPhotoPage({
       driveFolderUrl: targetStudent.driveFolderUrl,
     });
     setErrorModal(null);
-    onBack();
   };
 
   const isFormValid = Boolean(photoPreview);

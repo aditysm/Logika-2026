@@ -446,8 +446,8 @@ export default function App() {
   };
 
   const handleCloseUploadPhoto = () => {
-    if (window.history.state && window.history.state.idx > 0) {
-      navigate(-1);
+    if (uploadTargetStudent?.nim) {
+      navigate(`/mhs/${encodeURIComponent(uploadTargetStudent.nim)}`);
     } else {
       navigate('/');
     }
