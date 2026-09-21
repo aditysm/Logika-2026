@@ -77,6 +77,17 @@ export default function App() {
   // Dedicated Views & Sub-pages
   const [pendingUploadTarget, setPendingUploadTarget] = useState<Mahasiswa | null>(null);
   const [viewingPhotoRecord, setViewingPhotoRecord] = useState<PhotoRecord | null>(null);
+  const [viewingPhotoStudent, setViewingPhotoStudent] = useState<Mahasiswa | null>(null);
+
+  const handleOpenPhotoViewer = (rec: PhotoRecord, student?: Mahasiswa | null) => {
+    setViewingPhotoRecord(rec);
+    setViewingPhotoStudent(student || null);
+  };
+
+  const handleClosePhotoViewer = () => {
+    setViewingPhotoRecord(null);
+    setViewingPhotoStudent(null);
+  };
 
   // Know Each Other & Photo Progress States
   const [currentUserNim, setCurrentUserNimState] = useState<string | null>(() => getCurrentUserNim());
@@ -404,7 +415,7 @@ export default function App() {
     if (currentUser) {
       const existingRecord = getPhotoWithTarget(photoRecords, currentUser.nim, student.nim);
       if (existingRecord) {
-        setViewingPhotoRecord(existingRecord);
+        handleOpenPhotoViewer(existingRecord, student);
         setToastMessage(`Foto bersama ${student.namaPanggilan || student.namaLengkap} sudah ada.`);
         setTimeout(() => setToastMessage(null), 3000);
         return;
@@ -498,7 +509,7 @@ export default function App() {
       } else if (found && hasTakenPhoto(photoRecords, found.nim, target.nim)) {
         const existingRecord = getPhotoWithTarget(photoRecords, found.nim, target.nim);
         if (existingRecord) {
-          setViewingPhotoRecord(existingRecord);
+          handleOpenPhotoViewer(existingRecord, target);
         }
         navigate('/');
         setToastMessage(`Selamat datang, ${name}! Foto bersama ${target.namaPanggilan || target.namaLengkap} sudah ada.`);
@@ -890,7 +901,7 @@ export default function App() {
                       }
                       refreshKey={refreshKey}
                       onOpenUploadModal={handleOpenUploadPhoto}
-                      onViewPhoto={(rec) => setViewingPhotoRecord(rec)}
+                      onViewPhoto={(rec, st) => handleOpenPhotoViewer(rec, st || selectedStudent)}
                       onEditProfile={handleOpenEditProfile}
                       onOpenPremiumModal={handleOpenPricing}
                       onGenerateReport={handleGenerateReport}
@@ -1053,8 +1064,10 @@ export default function App() {
       {/* Photo Viewer Modal Lightbox */}
       <PhotoViewerModal
         photoRecord={viewingPhotoRecord}
+        targetStudent={viewingPhotoStudent}
         currentUser={currentUser}
-        onClose={() => setViewingPhotoRecord(null)}
+        allStudents={students}
+        onClose={handleClosePhotoViewer}
       />
 
       {/* Floating Scroll To Top Button */}

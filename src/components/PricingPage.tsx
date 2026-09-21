@@ -115,7 +115,7 @@ export function PricingPage({
     {
       question: 'Apa perbedaan utama di setiap tingkat akun?',
       answer:
-        'Paket Free dapat digunakan untuk melihat data mahasiswa dan progres foto. Paket Basic memberikan ruang folder penyimpanan Google Drive yang disediakan oleh pengelola secara gratis untuk menyimpan foto bersama teman. Paket Pro membuka semua fitur di atas ditambah dengan pembuatan berkas laporan tugas format Word (.docx) secara otomatis.',
+        'Paket Free dapat digunakan untuk melihat data mahasiswa dan progres foto. Paket Basic memberikan ruang folder penyimpanan Google Drive yang disediakan oleh pengelola secara gratis untuk menyimpan foto bersama teman. Paket Pro membuka semua fitur di atas ditambah dengan pembuatan berkas dokumen laporan tugas format PDF (.pdf) secara otomatis.',
     },
     {
       question: 'Saya sudah membeli Paket Basic, apakah harus bayar penuh jika ingin ke Paket Pro?',
@@ -139,7 +139,7 @@ export function PricingPage({
       case 'pro':
         return { percent: 'w-full', text: 'Semua fitur telah terbuka! Anda berada di tingkat akses tertinggi (Paket Pro).' };
       case 'basic':
-        return { percent: 'w-2/3', text: 'Tingkat akses Anda: Paket Basic. Tinggal 1 langkah lagi untuk membuka fitur unduh laporan Word.' };
+        return { percent: 'w-2/3', text: 'Tingkat akses Anda: Paket Basic. Tinggal 1 langkah lagi untuk membuka fitur pembuatan laporan PDF.' };
       default:
         return { percent: 'w-1/3', text: 'Tingkat akses Anda: Paket Free. Tingkatkan akun untuk membuka penyimpanan Google Drive otomatis.' };
     }
@@ -174,7 +174,7 @@ export function PricingPage({
       pro: true,
     },
     {
-      name: 'Membuat berkas dokumen Word (.docx) otomatis',
+      name: 'Membuat berkas dokumen Laporan PDF (.pdf) otomatis',
       free: false,
       basic: false,
       pro: true,
@@ -397,14 +397,14 @@ export function PricingPage({
                 <h3 className="text-2xl font-black text-slate-900 leading-none mt-0.5">Rp7.000</h3>
               </div>
             </div>
-            <p className="text-[11px] text-slate-500">Mencakup semua fitur, ditambah pembuatan laporan Word instan.</p>
+            <p className="text-[11px] text-slate-500">Mencakup semua fitur, ditambah pembuatan laporan PDF &amp; dokumen otomatis.</p>
 
             <div className="border-t border-slate-100 pt-4 space-y-3">
               <p className="text-xs font-bold text-slate-700">Semua fitur Basic, ditambah:</p>
               <ul className="space-y-2.5 text-xs text-slate-600">
                 <li className="flex items-start gap-2 font-bold text-slate-800">
                   <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <span>Unduh berkas Laporan Word (.docx) otomatis</span>
+                  <span>Unduh berkas Laporan PDF (.pdf) otomatis</span>
                 </li>
                 <li className="flex items-start gap-2 text-slate-700">
                   <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />

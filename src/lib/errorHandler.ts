@@ -77,17 +77,26 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
     return 'Ukuran berkas foto terlalu besar. Silakan pilih foto dengan resolusi lebih kecil atau kompres terlebih dahulu.';
   }
 
+  // Specific Edge Function / Rollback / Drive validations
+  if (
+    lower.includes('rollback') ||
+    lower.includes('belum terkonfigurasi') ||
+    lower.includes('subfolder') ||
+    lower.includes('tidak ditemukan di database') ||
+    lower.includes('sudah diunggah sebelumnya')
+  ) {
+    return rawMessage;
+  }
+
   // 5. Server error (500, 502, 503, 504)
   if (
     status >= 500 ||
-    lower.includes('500') ||
     lower.includes('502') ||
     lower.includes('503') ||
     lower.includes('504') ||
     lower.includes('bad gateway') ||
     lower.includes('service unavailable') ||
-    lower.includes('gateway timeout') ||
-    lower.includes('internal server error')
+    lower.includes('gateway timeout')
   ) {
     return 'Layanan server sedang sibuk atau dalam pemeliharaan. Silakan tunggu sebentar dan coba lagi nanti.';
   }

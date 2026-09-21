@@ -1,4 +1,6 @@
 import { getIntuitiveErrorMessage } from './errorHandler';
+import { ReportRequest } from '../types';
+import { SUPABASE_ANON_KEY_IN_CODE, getSupabaseClient } from './supabase';
 
 /**
  * API Client for interacting with the Supabase Edge Function
@@ -7,6 +9,11 @@ import { getIntuitiveErrorMessage } from './errorHandler';
 
 export const SUPABASE_EDGE_FUNCTION_URL =
   'https://fwhapumjpfbqirmqqwrm.supabase.co/functions/v1/logika';
+
+export const EDGE_FUNCTION_CANDIDATE_URLS = [
+  'https://fwhapumjpfbqirmqqwrm.supabase.co/functions/v1/logika',
+  'https://fwhapumjpfbqirmqqwrm.supabase.co/functions/v1/main',
+];
 
 export const DEFAULT_DRIVE_FOLDER_ID = '1MuAMDF9gyKuOjGwBiT8vWvVuyfFAELSd';
 export const DEFAULT_DRIVE_FOLDER_URL =
@@ -415,3 +422,192 @@ export function extractDriveFolderId(urlOrId: string): string {
   }
   return trimmed;
 }
+
+/**
+ * Request server-side automated PDF report generation queue
+ * Sends POST /request-report with { nim }
+ */
+export async function requestGenerateReport(userNim: string): Promise<{
+  success: boolean;
+  message?: string;
+  is_already_in_queue?: boolean;
+  data?: ReportRequest;
+  error?: string;
+}> {
+  const cleanNim = (userNim || '').trim();
+  if (!cleanNim) {
+    return { success: false, error: 'NIM wajib disertakan untuk mengajukan pembuatan laporan.' };
+  }
+
+  const payload = { nim: cleanNim };
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${SUPABASE_ANON_KEY_IN_CODE}`,
+    apikey: SUPABASE_ANON_KEY_IN_CODE,
+  };
+
+  // 1. Try candidate Edge Function URLs
+  for (const baseUrl of EDGE_FUNCTION_CANDIDATE_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}/request-report`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return {
+          success: result.success ?? true,
+          message: result.message || 'Permintaan laporan berhasil masuk antrean.',
+          is_already_in_queue: !!result.is_already_in_queue,
+          data: result.data,
+        };
+      } else if (response.status !== 404 && response.status !== 405) {
+        const errJson = await response.json().catch(() => null);
+        const errMsg =
+          errJson?.error || errJson?.message || `Gagal mengajukan antrean (${response.status})`;
+        return {
+          success: false,
+          error: getIntuitiveErrorMessage({ status: response.status, message: errMsg }),
+        };
+      }
+    } catch (e) {
+      console.warn(`Request report failed on ${baseUrl}:`, e);
+    }
+  }
+
+  // 2. Direct Database Fallback to 'report_requests' table if Edge Function endpoint is unreachable
+  try {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      // Check existing pending/processing
+      const { data: existing } = await supabase
+        .from('report_requests')
+        .select('id, nim, status, pdf_url, created_at')
+        .eq('nim', cleanNim)
+        .in('status', ['pending', 'processing'])
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          success: true,
+          is_already_in_queue: true,
+          message: `Permintaan laporan Anda sedang diproses dalam antrean dengan status '${String(existing.status).toUpperCase()}'.`,
+          data: existing as ReportRequest,
+        };
+      }
+
+      // Check profile to retrieve drive_folder_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('nim, nama_lengkap, drive_folder_id')
+        .eq('nim', cleanNim)
+        .maybeSingle();
+
+      const newRecord = {
+        nim: cleanNim,
+        nama_lengkap: profile?.nama_lengkap || 'Mahasiswa',
+        drive_folder_id: profile?.drive_folder_id || '',
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      };
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from('report_requests')
+        .insert([newRecord])
+        .select()
+        .single();
+
+      if (!insertErr && inserted) {
+        return {
+          success: true,
+          message: 'Permintaan laporan berhasil masuk antrean basis data!',
+          data: inserted as ReportRequest,
+        };
+      }
+    }
+  } catch (dbErr) {
+    console.warn('Direct database fallback insert error:', dbErr);
+  }
+
+  return {
+    success: false,
+    error: 'Tidak dapat terhubung ke server antrean laporan. Silakan coba lagi nanti.',
+  };
+}
+
+/**
+ * Fetch latest report generation status for a student
+ * Calls GET /report-status?nim=...
+ */
+export async function getReportStatus(userNim: string): Promise<{
+  success: boolean;
+  data?: ReportRequest;
+  error?: string;
+}> {
+  const cleanNim = (userNim || '').trim();
+  if (!cleanNim) {
+    return { success: false, error: 'NIM wajib disertakan.' };
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${SUPABASE_ANON_KEY_IN_CODE}`,
+    apikey: SUPABASE_ANON_KEY_IN_CODE,
+  };
+
+  // 1. Try candidate Edge Function URLs
+  for (const baseUrl of EDGE_FUNCTION_CANDIDATE_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}/report-status?nim=${encodeURIComponent(cleanNim)}`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.data) {
+          return {
+            success: true,
+            data: result.data as ReportRequest,
+          };
+        }
+      }
+    } catch {
+      // Continue to next URL candidate or direct DB
+    }
+  }
+
+  // 2. Direct Database Fallback to 'report_requests'
+  try {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data: latest, error } = await supabase
+        .from('report_requests')
+        .select('id, nim, status, pdf_url, error_message, created_at, updated_at')
+        .eq('nim', cleanNim)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error) {
+        return {
+          success: true,
+          data: (latest as ReportRequest) || {
+            nim: cleanNim,
+            status: 'none',
+            message: 'Belum ada riwayat permintaan pembuatan laporan.',
+          },
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Fallback report status DB error:', err);
+  }
+
+  return {
+    success: false,
+    error: 'Gagal memeriksa status laporan.',
+  };
+}
+

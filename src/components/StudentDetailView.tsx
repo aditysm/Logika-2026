@@ -44,6 +44,8 @@ import {
 } from '../lib/supabase';
 import { formatIndonesianDate, hasTakenPhoto } from '../lib/photoStorage';
 import { WhatsAppIcon } from './WhatsAppIcon';
+import { ReportSection } from './ReportSection';
+import { DEFAULT_DRIVE_FOLDER_URL } from '../lib/api';
 
 interface StudentDetailViewProps {
   student: Mahasiswa;
@@ -56,7 +58,7 @@ interface StudentDetailViewProps {
   photoRecords?: PhotoRecord[];
   refreshKey?: number;
   onOpenUploadModal?: (student: Mahasiswa) => void;
-  onViewPhoto?: (photoRecord: PhotoRecord) => void;
+  onViewPhoto?: (photoRecord: PhotoRecord, student?: Mahasiswa) => void;
   onEditProfile?: () => void;
   onOpenPremiumModal?: () => void;
   onGenerateReport?: () => void;
@@ -473,7 +475,7 @@ Alamat Email: ${student.email}`;
                 </div>
                 {activeTier !== 'free' && (
                   <a
-                    href="https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX"
+                    href={student.driveFolderUrl || DEFAULT_DRIVE_FOLDER_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white border border-slate-200 rounded-xl transition-all shadow-2xs whitespace-nowrap cursor-pointer"
@@ -498,54 +500,17 @@ Alamat Email: ${student.email}`;
                   )}
                   {activeTier === 'basic' && (
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      Anda menggunakan paket <strong>Basic</strong>. Penyimpanan aktif. Pilih Paket Pro untuk mengunduh Laporan Word (.docx)!
+                      Anda menggunakan paket <strong>Basic</strong>. Penyimpanan aktif. Pilih Paket Pro untuk membuka fitur pembuatan Laporan Tugas otomatis!
                     </p>
                   )}
                   {activeTier === 'pro' && (
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      {myPercentage >= 100 ? (
-                        <span>Anda menggunakan paket <strong>Pro</strong>. Progres 100% tercapai! Silakan unduh Laporan Word sekarang.</span>
-                      ) : (
-                        <span>Anda menggunakan paket <strong>Pro</strong>. Kumpulkan foto rekan kuliah hingga 100% untuk mengunduh Laporan Word!</span>
-                      )}
+                      <span>Anda menggunakan paket <strong>Pro</strong>. Akses pembuatan dokumen laporan PDF otomatis aktif.</span>
                     </p>
                   )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-                  {/* Laporan .docx Action Button */}
-                  {activeTier === 'pro' ? (
-                    myPercentage >= 100 ? (
-                      <button
-                        type="button"
-                        onClick={onGenerateReport}
-                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-900 hover:text-slate-950 bg-amber-400 hover:bg-amber-500 rounded-xl transition-all shadow-xs cursor-pointer animate-pulse"
-                      >
-                        <FileDown className="w-3.5 h-3.5" />
-                        <span>Unduh Laporan Word (.docx)</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed"
-                        title={`Progres baru ${myPercentage}%. Selesaikan hingga 100% untuk mengaktifkan tombol unduh laporan!`}
-                      >
-                        <Lock className="w-3.5 h-3.5 text-slate-300" />
-                        <span>Unduh Laporan Word ({myPercentage}%)</span>
-                      </button>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={onOpenPremiumModal}
-                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer"
-                      title="Pilih Paket Pro dan kumpulkan foto rekan kuliah hingga 100% untuk mengunduh laporan Word"
-                    >
-                      <Lock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Unduh Laporan Word (.docx)</span>
-                    </button>
-                  )}
-
                   {/* Upgrade / Billing Button */}
                   {activeTier !== 'pro' && (
                     <button
@@ -554,13 +519,22 @@ Alamat Email: ${student.email}`;
                       className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl transition-all shadow-xs cursor-pointer"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-white" />
-                      <span>{activeTier === 'free' ? 'Pilih Paket Basic (Rp2.000)' : 'Pilih Paket Pro (Rp5.000)'}</span>
+                      <span>{activeTier === 'free' ? 'Pilih Paket Basic (Rp2.000)' : 'Upgrade ke Paket Pro (Rp5.000)'}</span>
                     </button>
                   )}
                 </div>
               </div>
+
+              {/* Integrated Report Generation Section (Antrean PDF + Real-time Polling) */}
+              <ReportSection
+                currentUser={currentUser}
+                allStudents={totalStudents && totalStudents.length > 0 ? totalStudents : allStudents}
+                photoRecords={photoRecords}
+                onOpenPremiumModal={onOpenPremiumModal}
+              />
             </div>
           </div>
+
         ) : (
           <div className="mt-6 pt-6 border-t border-slate-100">
             {/* 4-Grid Action Buttons for Other Students */}
@@ -665,16 +639,23 @@ Alamat Email: ${student.email}`;
                   <h3 className="text-lg font-black text-slate-900 leading-tight">
                     Sudah Berfoto Bersama
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                    File: <code className="font-mono text-blue-600 font-bold bg-blue-50/50 px-1.5 py-0.5 rounded">{photoRecord.photoFileName}</code>
-                  </p>
+                  {(() => {
+                    const cleanName = student.namaLengkap.trim().replace(/\s+/g, '_');
+                    const cleanNim = student.nim.trim().replace(/[\/\s]/g, '-');
+                    const webFileName = `${cleanName}_${cleanNim}.jpg`;
+                    return (
+                      <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                        File: <code className="font-mono text-blue-600 font-bold bg-blue-50/50 px-1.5 py-0.5 rounded break-all">{webFileName}</code>
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
 
               <button
                 id="btn-detail-view-photo"
                 type="button"
-                onClick={() => onViewPhoto?.(photoRecord)}
+                onClick={() => onViewPhoto?.(photoRecord, student)}
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl transition-all w-full sm:w-auto shadow-2xs active:scale-95 cursor-pointer"
               >
                 <Eye className="w-4 h-4" />

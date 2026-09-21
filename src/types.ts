@@ -67,3 +67,17 @@ export interface PhotoTracking {
   is_checked: boolean;
   updated_at: string;
 }
+
+export interface ReportRequest {
+  id?: number;
+  nim: string;
+  nama_lengkap?: string;
+  drive_folder_id?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'none';
+  pdf_url?: string;
+  error_message?: string;
+  created_at?: string;
+  updated_at?: string;
+  message?: string;
+  is_already_in_queue?: boolean;
+}
