@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   ExternalLink,
@@ -48,38 +47,6 @@ export function UserProgressBanner({
   ).length;
 
   const percentage = totalFriends > 0 ? Math.round((takenCount / totalFriends) * 100) : 0;
-
-  // Numeric count-up animation state
-  const [animatedTakenCount, setAnimatedTakenCount] = useState(0);
-
-  useEffect(() => {
-    const start = animatedTakenCount;
-    const end = takenCount;
-    if (start === end) return;
-
-    const duration = 1000; // 1 second animation duration
-    const startTime = performance.now();
-    let animationFrameId: number;
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const easeProgress = progress * (2 - progress); // easeOutQuad
-      const currentVal = Math.round(start + (end - start) * easeProgress);
-      setAnimatedTakenCount(currentVal);
-
-      if (progress < 1) {
-        animationFrameId = requestAnimationFrame(animate);
-      }
-    };
-
-    animationFrameId = requestAnimationFrame(animate);
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [takenCount]);
-
-  const animatedPercentage = totalFriends > 0 ? Math.round((animatedTakenCount / totalFriends) * 100) : 0;
 
   return (
     <div className="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-xs mb-6 sm:mb-8 relative overflow-hidden">
@@ -141,7 +108,7 @@ export function UserProgressBanner({
               <span>Progress Foto Bersama</span>
             </div>
             <span className="text-blue-700 font-bold tabular-nums">
-              {animatedTakenCount} dari {totalFriends} Teman ({animatedPercentage}%)
+              {takenCount} dari {totalFriends} Teman ({percentage}%)
             </span>
           </div>
 
@@ -149,13 +116,13 @@ export function UserProgressBanner({
           <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/40 relative">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                animatedPercentage < 35
+                percentage < 35
                   ? 'bg-orange-500'
-                  : animatedPercentage < 75
+                  : percentage < 75
                   ? 'bg-amber-500'
                   : 'bg-emerald-500'
               }`}
-              style={{ width: `${Math.min(100, animatedPercentage)}%` }}
+              style={{ width: `${Math.min(100, percentage)}%` }}
             />
           </div>
 
@@ -164,18 +131,18 @@ export function UserProgressBanner({
               type="button"
               onClick={() => onFilterPhotoStatusChange('SUDAH')}
               className={`flex items-center gap-1 font-semibold hover:underline cursor-pointer ${
-                animatedTakenCount > 0 ? 'text-emerald-600' : 'text-rose-600'
+                takenCount > 0 ? 'text-emerald-600' : 'text-rose-600'
               }`}
             >
-              <CheckCircle2 className={`w-3.5 h-3.5 ${animatedTakenCount > 0 ? 'text-emerald-600' : 'text-rose-500'}`} />
-              <span>{animatedTakenCount} Sudah Foto</span>
+              <CheckCircle2 className={`w-3.5 h-3.5 ${takenCount > 0 ? 'text-emerald-600' : 'text-rose-500'}`} />
+              <span>{takenCount} Sudah Foto</span>
             </button>
             <button
               type="button"
               onClick={() => onFilterPhotoStatusChange('BELUM')}
               className="text-slate-500 font-medium hover:text-blue-600 hover:underline cursor-pointer"
             >
-              <span>{Math.max(0, totalFriends - animatedTakenCount)} Belum Foto</span>
+              <span>{Math.max(0, totalFriends - takenCount)} Belum Foto</span>
             </button>
           </div>
         </div>

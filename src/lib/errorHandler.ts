@@ -115,9 +115,16 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
     return 'Akses tidak diizinkan atau sesi telah berakhir. Silakan muat ulang atau login kembali, lalu coba lagi.';
   }
 
-  // Clean technical jargon if it looks like Postgres / Supabase SQL error
-  if (lower.includes('pgrst') || lower.includes('postgres') || lower.includes('relation') || lower.includes('column')) {
-    return 'Terjadi kendala saat membaca data dari database. Silakan coba lagi nanti.';
+  // Clean technical jargon if it looks like Postgres / Supabase / Edge Function / SQL error
+  if (
+    lower.includes('pgrst') ||
+    lower.includes('postgres') ||
+    lower.includes('relation') ||
+    lower.includes('column') ||
+    lower.includes('supabase') ||
+    lower.includes('edge function')
+  ) {
+    return 'Terjadi kendala saat menghubungkan ke server penyimpanan. Silakan periksa koneksi Anda dan coba lagi nanti.';
   }
 
   // If rawMessage is already an informative user-facing message, return it directly

@@ -60,24 +60,18 @@ export function EditProfilePage({
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form validation: ALL fields are required and must be non-empty
+  // Form validation: Editable fields must be non-empty
   const isValid =
-    namaLengkap.trim().length > 0 &&
     namaPanggilan.trim().length > 0 &&
-    nim.trim().length > 0 &&
-    kelompok.trim().length > 0 &&
     noWa.trim().length > 0 &&
     email.trim().length > 0 &&
     asalRumah.trim().length > 0 &&
     alamatRumahDomisili.trim().length > 0 &&
     hobi.trim().length > 0;
 
-  // The update button is active ONLY if there are changes from the current profile
+  // The update button is active ONLY if there are changes in editable fields
   const hasChanges =
-    namaLengkap.trim() !== (currentUser.namaLengkap || '').trim() ||
     namaPanggilan.trim() !== (currentUser.namaPanggilan || '').trim() ||
-    nim.trim() !== (currentUser.nim || '').trim() ||
-    kelompok.trim() !== (currentUser.kelompok || '').trim() ||
     noWa.trim() !== (currentUser.noWa || '').trim() ||
     email.trim() !== (currentUser.email || '').trim() ||
     asalRumah.trim() !== (currentUser.asalRumah || '').trim() ||
@@ -87,17 +81,8 @@ export function EditProfilePage({
   // Compute actual list of changes to display in the confirmation modal
   const changedFields = useMemo(() => {
     const list = [];
-    if (namaLengkap.trim() !== (currentUser.namaLengkap || '').trim()) {
-      list.push({ label: 'Nama Lengkap', old: currentUser.namaLengkap || '-', new: namaLengkap.trim() });
-    }
     if (namaPanggilan.trim() !== (currentUser.namaPanggilan || '').trim()) {
       list.push({ label: 'Nama Panggilan', old: currentUser.namaPanggilan || '-', new: namaPanggilan.trim() });
-    }
-    if (nim.trim() !== (currentUser.nim || '').trim()) {
-      list.push({ label: 'NIM', old: currentUser.nim || '-', new: nim.trim() });
-    }
-    if (kelompok.trim() !== (currentUser.kelompok || '').trim()) {
-      list.push({ label: 'Kelompok', old: currentUser.kelompok || '-', new: kelompok.trim() });
     }
     if (noWa.trim() !== (currentUser.noWa || '').trim()) {
       list.push({ label: 'No. WhatsApp', old: currentUser.noWa || '-', new: noWa.trim() });
@@ -115,7 +100,7 @@ export function EditProfilePage({
       list.push({ label: 'Hobi & Minat', old: currentUser.hobi || '-', new: hobi.trim() });
     }
     return list;
-  }, [namaLengkap, namaPanggilan, nim, kelompok, noWa, email, asalRumah, alamatRumahDomisili, hobi, currentUser]);
+  }, [namaPanggilan, noWa, email, asalRumah, alamatRumahDomisili, hobi, currentUser]);
 
   const handleOpenConfirm = (e: FormEvent) => {
     e.preventDefault();
@@ -203,20 +188,24 @@ export function EditProfilePage({
 
         <form onSubmit={handleOpenConfirm} className="mt-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Nama Lengkap */}
+            {/* Nama Lengkap (Locked) */}
             <div>
-              <label htmlFor="input-edit-nama" className="block text-xs font-bold text-slate-700 mb-1.5">
-                Nama Lengkap <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="input-edit-nama" className="block text-xs font-bold text-slate-700">
+                  Nama Lengkap
+                </label>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5">
+                  <Lock className="w-3 h-3 text-slate-400" />
+                  <span>Tidak Dapat Diubah</span>
+                </span>
+              </div>
               <div className="relative">
                 <input
                   id="input-edit-nama"
                   type="text"
-                  required
+                  disabled
                   value={namaLengkap}
-                  onChange={(e) => setNamaLengkap(e.target.value)}
-                  placeholder="Nama Lengkap sesuai data kampus"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-500 cursor-not-allowed select-none"
                 />
               </div>
             </div>
@@ -239,36 +228,48 @@ export function EditProfilePage({
               </div>
             </div>
 
-            {/* NIM */}
+            {/* NIM (Locked) */}
             <div>
-              <label htmlFor="input-edit-nim" className="block text-xs font-bold text-slate-700 mb-1.5">
-                Nomor Induk Mahasiswa (NIM) <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="input-edit-nim" className="block text-xs font-bold text-slate-700">
+                  Nomor Induk Mahasiswa (NIM)
+                </label>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5">
+                  <Lock className="w-3 h-3 text-slate-400" />
+                  <span>Tidak Dapat Diubah</span>
+                </span>
+              </div>
               <div className="relative">
                 <input
                   id="input-edit-nim"
                   type="text"
-                  required
+                  disabled
                   value={nim}
-                  onChange={(e) => setNim(e.target.value)}
-                  placeholder="Contoh: 26/514238/PA/21045"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-mono font-semibold text-slate-500 cursor-not-allowed select-none"
                 />
               </div>
             </div>
 
-            {/* Kelompok */}
+            {/* Kelompok (Locked) */}
             <div>
-              <label htmlFor="select-edit-kelompok" className="block text-xs font-bold text-slate-700 mb-1.5">
-                Kelompok Logika <span className="text-rose-500">*</span>
-              </label>
-              <CustomSelect
-                id="select-edit-kelompok"
-                value={kelompok}
-                onChange={setKelompok}
-                options={kelompokOptions}
-                size="md"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="input-edit-kelompok-locked" className="block text-xs font-bold text-slate-700">
+                  Kelompok Logika
+                </label>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5">
+                  <Lock className="w-3 h-3 text-slate-400" />
+                  <span>Tidak Dapat Diubah</span>
+                </span>
+              </div>
+              <div className="relative">
+                <input
+                  id="input-edit-kelompok-locked"
+                  type="text"
+                  disabled
+                  value={kelompok}
+                  className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-500 cursor-not-allowed select-none"
+                />
+              </div>
             </div>
 
             {/* Nomor WhatsApp */}

@@ -233,7 +233,7 @@ export async function fetchStudentsFromSupabase(
       data: SAMPLE_MAHASISWA,
       isRealData: false,
       sourceTable: config.tableName || DEFAULT_PROFILES_TABLE,
-      error: 'Koneksi Supabase belum dikonfigurasi. Masukkan URL API & Anon Key pada menu pengaturan.',
+      error: 'Koneksi database belum dikonfigurasi. Masukkan URL API pada menu pengaturan.',
     };
   }
 
@@ -307,6 +307,12 @@ export async function fetchStudentsFromSupabase(
   }
 }
 
+// Global Query Configuration to disable auto-refetching on window focus or re-mount
+export const queryConfig = {
+  refetchOnWindowFocus: false,
+  refetchOnMount: false,
+};
+
 // Fetch photo_logs from Supabase
 export async function fetchPhotoLogsFromSupabase(
   customConfig?: SupabaseConfig,
@@ -321,40 +327,13 @@ export async function fetchPhotoLogsFromSupabase(
 
     const tablesToTry = [DEFAULT_PHOTO_LOGS_TABLE, 'photo_logs', 'photo_log', 'photologs'];
     for (const tableName of tablesToTry) {
-      const allRows: Record<string, unknown>[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      let hasMore = true;
-      let hadSuccess = false;
+      const res = await supabase.from(tableName).select('*');
 
-      while (hasMore) {
-        // Query batch with ordering to ensure consistent pagination across all pages
-        const res = await supabase
-          .from(tableName)
-          .select('*')
-          .range(from, from + batchSize - 1);
-
-        if (res.error) {
-          fetchError = res.error;
-          break;
-        }
-
-        if (res.data && res.data.length > 0) {
-          hadSuccess = true;
-          allRows.push(...(res.data as Record<string, unknown>[]));
-          if (res.data.length < batchSize) {
-            hasMore = false;
-          } else {
-            from += batchSize;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
-
-      if (hadSuccess && allRows.length > 0) {
-        data = allRows;
+      if (!res.error && res.data) {
+        data = res.data as Record<string, unknown>[];
         break;
+      } else if (res.error) {
+        fetchError = res.error;
       }
     }
 
@@ -631,20 +610,34 @@ export function subscribeToSupabaseRealtime(
 
 // Fetch payment logs for a user from Supabase
 export async function fetchPaymentLogsFromSupabase(
-  nim: string,
+  nim?: string,
   customConfig?: SupabaseConfig
 ): Promise<PaymentLog[]> {
   const supabase = getSupabaseClient(customConfig);
-  if (!supabase) return [];
+  const cleanNim = (
+    nim ||
+    (typeof window !== 'undefined' ? localStorage.getItem('logika_2026_current_user_nim') : '') ||
+    ''
+  ).trim();
+  if (!supabase || !cleanNim) return [];
 
   try {
     const { data, error } = await supabase
       .from('payment_logs')
       .select('*')
-      .eq('user_nim', nim)
+      .or(`user_nim.eq.${cleanNim},user_id.eq.${cleanNim},nim.eq.${cleanNim}`)
       .order('id', { ascending: false });
 
     if (error) {
+      const fallback = await supabase
+        .from('payment_logs')
+        .select('*')
+        .eq('user_nim', cleanNim)
+        .order('id', { ascending: false });
+
+      if (!fallback.error && fallback.data) {
+        return fallback.data as PaymentLog[];
+      }
       console.warn('Failed to fetch payment_logs:', error.message);
       return [];
     }
@@ -689,25 +682,33 @@ export async function fetchPhotoTrackingFromSupabase(
   customConfig?: SupabaseConfig
 ): Promise<Record<string, boolean>> {
   const supabase = getSupabaseClient(customConfig);
-  if (!supabase || !userKey) return {};
+  const cleanUser = (
+    userKey ||
+    (typeof window !== 'undefined' ? localStorage.getItem('logika_2026_current_user_nim') : '') ||
+    ''
+  ).trim();
+  if (!supabase || !cleanUser) return {};
 
   try {
-    const cleanUser = userKey.trim();
-
     // Query photo_tracking for this user
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from(DEFAULT_PHOTO_TRACKING_TABLE)
       .select('target_nim, is_checked, user_id')
       .eq('user_id', cleanUser);
 
-    if (error) {
-      console.warn('Failed to fetch photo_tracking:', error.message);
-      return {};
+    if (error || !data) {
+      const retry = await supabase
+        .from(DEFAULT_PHOTO_TRACKING_TABLE)
+        .select('target_nim, is_checked, nim')
+        .eq('nim', cleanUser);
+      if (!retry.error && retry.data) {
+        data = retry.data;
+      }
     }
 
     const trackingMap: Record<string, boolean> = {};
     if (data) {
-      data.forEach((row: { target_nim: string; is_checked: boolean }) => {
+      data.forEach((row: { target_nim?: string; is_checked?: boolean }) => {
         if (row.target_nim) {
           const isTrue = row.is_checked === true || String(row.is_checked) === 'true';
           const targetStr = String(row.target_nim);

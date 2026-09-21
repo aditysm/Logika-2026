@@ -139,7 +139,7 @@ export async function updateProfilUser(
     }
 
     if (!response) {
-      return { success: false, error: 'Tidak dapat terhubung ke server Supabase Edge Function.' };
+      return { success: false, error: 'Tidak dapat terhubung ke server aplikasi. Silakan periksa koneksi internet Anda atau coba lagi nanti.' };
     }
 
     const result = await response.json().catch(() => null);
@@ -320,7 +320,7 @@ export async function uploadFotoBersama(params: {
     }
 
     if (!response) {
-      return { success: false, error: 'Tidak dapat terhubung ke server upload Supabase. Silakan coba lagi nanti.' };
+      return { success: false, error: 'Tidak dapat terhubung ke server penyimpanan foto. Silakan periksa koneksi internet Anda atau coba lagi nanti.' };
     }
 
     const result: UploadPhotoResponse = await response.json().catch(() => ({}));
