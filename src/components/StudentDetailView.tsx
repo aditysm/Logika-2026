@@ -112,12 +112,14 @@ export function StudentDetailView({
       if (userKey && student.nim) {
         setIsTrackingLoading(true);
         const data = await fetchPhotoTrackingFromSupabase(userKey);
-        setIsCheckedInTracking(!!data[student.nim]);
+        const cleanNim = student.nim.toLowerCase().replace(/[\/\s_-]/g, '');
+        const hasPhoto = hasTakenPhoto(photoRecords, userKey, student.nim);
+        setIsCheckedInTracking(Boolean(data[student.nim] || data[cleanNim] || data[student.nim.trim()] || hasPhoto));
         setIsTrackingLoading(false);
       }
     };
     loadTrackingStatus();
-  }, [student.nim, userKey, refreshKey]);
+  }, [student.nim, userKey, refreshKey, photoRecords]);
 
   // Find index for Prev / Next navigation
   const currentIndex = allStudents.findIndex((s) => s.id === student.id);

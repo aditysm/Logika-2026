@@ -428,21 +428,38 @@ export function AdminModePage({
     setIsLoading(true);
     try {
       const meta = TABLES.find((t) => t.name === selectedTable) || TABLES[0];
-      let query = supabase.from(selectedTable).select('*');
+      const allTableRows: Record<string, unknown>[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      // Default sort
-      if (meta.primaryKey) {
-        query = query.order(meta.primaryKey, { ascending: false });
+      while (hasMore) {
+        let query = supabase.from(selectedTable).select('*');
+        if (meta.primaryKey) {
+          query = query.order(meta.primaryKey, { ascending: false });
+        }
+        const { data, error } = await query.range(from, from + batchSize - 1);
+        if (error) {
+          if (from === 0) {
+            showFeedback(`Gagal memuat tabel ${selectedTable}: ${error.message}`, true);
+            setTableData([]);
+          }
+          break;
+        }
+        if (data && data.length > 0) {
+          allTableRows.push(...data);
+          if (data.length < batchSize) {
+            hasMore = false;
+          } else {
+            from += batchSize;
+          }
+        } else {
+          hasMore = false;
+        }
       }
 
-      const { data, error } = await query;
-      if (error) {
-        showFeedback(`Gagal memuat tabel ${selectedTable}: ${error.message}`, true);
-        setTableData([]);
-      } else {
-        setTableData(data || []);
-        setTableCounts((prev) => ({ ...prev, [selectedTable]: data?.length || 0 }));
-      }
+      setTableData(allTableRows);
+      setTableCounts((prev) => ({ ...prev, [selectedTable]: allTableRows.length }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Terjadi kendala saat membaca data.';
       showFeedback(msg, true);

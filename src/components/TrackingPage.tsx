@@ -21,7 +21,7 @@ import {
   fetchPhotoTrackingFromSupabase, 
   upsertPhotoTrackingInSupabase 
 } from '../lib/supabase';
-import { hasTakenPhoto } from '../lib/photoStorage';
+import { hasTakenPhoto, normalizeNim } from '../lib/photoStorage';
 import { CustomSelect } from './CustomSelect';
 import { QRScannerModal } from './QRScannerModal';
 
@@ -80,29 +80,65 @@ export function TrackingPage({
     }
   }, [refreshKey]);
 
+  const isUploaded = (targetNim: string) => {
+    if (!currentUser?.nim || !targetNim) return false;
+    return hasTakenPhoto(photoRecords, currentUser.nim, targetNim);
+  };
+
+  const isStudentCompleted = (studentNim: string) => {
+    if (!currentUser?.nim || !studentNim) return false;
+    if (normalizeNim(studentNim) === normalizeNim(currentUser.nim)) return false;
+    const cleanNim = normalizeNim(studentNim);
+    const checkedInMap = Boolean(
+      trackingMap[studentNim] ||
+      trackingMap[cleanNim] ||
+      trackingMap[studentNim.trim()] ||
+      trackingMap[studentNim.trim().toUpperCase()]
+    );
+    const uploaded = isUploaded(studentNim);
+    return checkedInMap || uploaded;
+  };
+
   const handleToggle = async (targetNim: string, currentState: boolean) => {
-    if (!userKey || targetNim === currentUser?.nim) {
-      console.warn("Toggle ignored: userKey missing or target is self", { userKey, targetNim });
+    if (!userKey || !targetNim) return;
+    if (normalizeNim(targetNim) === normalizeNim(currentUser?.nim)) {
+      console.warn("Toggle ignored: target is self", { userKey, targetNim });
       return;
     }
     
     const newState = !currentState;
+    const cleanTarget = targetNim.trim();
+    const normTarget = normalizeNim(cleanTarget);
     
     // Optimistic update
-    setTrackingMap(prev => ({ ...prev, [targetNim]: newState }));
+    setTrackingMap(prev => ({
+      ...prev,
+      [targetNim]: newState,
+      [cleanTarget]: newState,
+      [normTarget]: newState,
+    }));
     
     const success = await upsertPhotoTrackingInSupabase(userKey, targetNim, newState);
     if (!success) {
       // Rollback on failure
-      setTrackingMap(prev => ({ ...prev, [targetNim]: currentState }));
+      setTrackingMap(prev => ({
+        ...prev,
+        [targetNim]: currentState,
+        [cleanTarget]: currentState,
+        [normTarget]: currentState,
+      }));
     }
   };
 
   // Handler saat mahasiswa di-scan via QR di Tracking
   const handleChecklistFromQr = async (scannedStudent: Mahasiswa) => {
-    if (!userKey || scannedStudent.nim === currentUser?.nim) return;
-    const currentState = trackingMap[scannedStudent.nim] || false;
-    const newState = !currentState;
+    if (!userKey || !scannedStudent.nim) return;
+    if (normalizeNim(scannedStudent.nim) === normalizeNim(currentUser?.nim)) return;
+
+    const currentCompleted = isStudentCompleted(scannedStudent.nim);
+    const newState = !currentCompleted;
+    const cleanNim = scannedStudent.nim.trim();
+    const normNim = normalizeNim(cleanNim);
 
     // Auto-update filter kelompok ke kelompok mahasiswa yang baru discan & dichecklist
     if (scannedStudent.kelompok) {
@@ -110,7 +146,12 @@ export function TrackingPage({
     }
 
     // Optimistic update
-    setTrackingMap(prev => ({ ...prev, [scannedStudent.nim]: newState }));
+    setTrackingMap(prev => ({
+      ...prev,
+      [scannedStudent.nim]: newState,
+      [cleanNim]: newState,
+      [normNim]: newState,
+    }));
 
     const success = await upsertPhotoTrackingInSupabase(userKey, scannedStudent.nim, newState);
     if (success) {
@@ -122,7 +163,12 @@ export function TrackingPage({
       setTimeout(() => setToastMessage(null), 4000);
     } else {
       // Rollback
-      setTrackingMap(prev => ({ ...prev, [scannedStudent.nim]: currentState }));
+      setTrackingMap(prev => ({
+        ...prev,
+        [scannedStudent.nim]: currentCompleted,
+        [cleanNim]: currentCompleted,
+        [normNim]: currentCompleted,
+      }));
     }
   };
 
@@ -168,15 +214,18 @@ export function TrackingPage({
       .sort((a, b) => a.namaLengkap.localeCompare(b.namaLengkap)); // Always A-Z
   }, [students, selectedGroup, searchQuery]);
 
-  // Check if photo is actually uploaded in photo_logs
-  const isUploaded = (targetNim: string) => {
-    if (!currentUser?.nim) return false;
-    return hasTakenPhoto(photoRecords, currentUser.nim, targetNim);
-  };
+  const peerStudents = useMemo(() => {
+    if (!currentUser?.nim) return students;
+    const myNorm = normalizeNim(currentUser.nim);
+    return students.filter((s) => normalizeNim(s.nim) !== myNorm);
+  }, [students, currentUser]);
 
-  const checkedCount = Object.values(trackingMap).filter(v => v).length;
-  const totalTarget = Math.max(1, students.length - 1);
-  const progressPercent = Math.round((checkedCount / totalTarget) * 100);
+  const checkedCount = useMemo(() => {
+    return peerStudents.filter((s) => isStudentCompleted(s.nim)).length;
+  }, [peerStudents, trackingMap, photoRecords, currentUser]);
+
+  const totalTarget = Math.max(1, peerStudents.length);
+  const progressPercent = totalTarget > 0 ? Math.round((checkedCount / totalTarget) * 100) : 0;
 
   return (
     <div className="max-w-4xl mx-auto px-4 pb-20 space-y-5">
@@ -336,8 +385,8 @@ export function TrackingPage({
                 ))
               ) : filteredStudents.length > 0 ? (
                 filteredStudents.map((student, idx) => {
-                  const isMe = student.nim === currentUser?.nim;
-                  const checked = trackingMap[student.nim] || false;
+                  const isMe = normalizeNim(student.nim) === normalizeNim(currentUser?.nim);
+                  const isCompleted = isStudentCompleted(student.nim);
                   const uploaded = isUploaded(student.nim);
 
                   return (
@@ -347,7 +396,7 @@ export function TrackingPage({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      onClick={() => !isMe && handleToggle(student.nim, checked)}
+                      onClick={() => !isMe && handleToggle(student.nim, isCompleted)}
                       className={`flex items-center gap-3 p-3.5 transition-all active:scale-[0.99] active:bg-slate-100 select-none border-b border-slate-50 last:border-0 ${
                         isMe ? 'bg-blue-50/50' : 'hover:bg-slate-50/50 cursor-pointer'
                       }`}
@@ -376,7 +425,7 @@ export function TrackingPage({
                       {/* Status Column - Compact */}
                       <div className="flex items-center gap-3 pr-1 shrink-0">
                         {uploaded ? (
-                          <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-100" title="Foto Terupload ke Drive">
+                          <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-100" title="Foto Terupload ke Drive / Supabase">
                             <Camera className="w-3.5 h-3.5" />
                             <Check className="w-2.5 h-2.5" />
                           </div>
@@ -390,12 +439,12 @@ export function TrackingPage({
                           className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center ${
                             isMe 
                               ? 'opacity-20 bg-slate-200' 
-                              : checked 
+                              : isCompleted 
                                 ? 'bg-blue-600 text-white shadow-md shadow-blue-200' 
                                 : 'bg-slate-50 border border-slate-200 text-slate-300'
                           }`}
                         >
-                          {checked ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                          {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
                         </div>
                       </div>
                     </motion.div>

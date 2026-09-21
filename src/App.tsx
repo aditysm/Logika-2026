@@ -292,7 +292,7 @@ export default function App() {
       },
       () => {
         // Photo logs changed remotely
-        fetchPhotoLogsFromSupabase().then((logs) => {
+        fetchPhotoLogsFromSupabase(undefined, students).then((logs) => {
           if (logs !== null) {
             setPhotoRecords((current) => {
               const merged = mergePhotoRecords(current, logs);
@@ -482,7 +482,7 @@ export default function App() {
     setCurrentUserNimState(nim);
 
     // Ambil ulang photo logs dari Supabase secara langsung setiap kali login
-    fetchPhotoLogsFromSupabase().then(async (remoteLogs) => {
+    fetchPhotoLogsFromSupabase(undefined, students).then(async (remoteLogs) => {
       if (remoteLogs !== null) {
         const localRecords = await loadPhotoRecordsFromStorage();
         const merged = mergePhotoRecords(localRecords || [], remoteLogs);

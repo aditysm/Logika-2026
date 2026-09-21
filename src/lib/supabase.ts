@@ -321,13 +321,40 @@ export async function fetchPhotoLogsFromSupabase(
 
     const tablesToTry = [DEFAULT_PHOTO_LOGS_TABLE, 'photo_logs', 'photo_log', 'photologs'];
     for (const tableName of tablesToTry) {
-      const res = await supabase.from(tableName).select('*');
-      if (!res.error && res.data) {
-        data = res.data as Record<string, unknown>[];
-        break;
+      const allRows: Record<string, unknown>[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      let hadSuccess = false;
+
+      while (hasMore) {
+        // Query batch with ordering to ensure consistent pagination across all pages
+        const res = await supabase
+          .from(tableName)
+          .select('*')
+          .range(from, from + batchSize - 1);
+
+        if (res.error) {
+          fetchError = res.error;
+          break;
+        }
+
+        if (res.data && res.data.length > 0) {
+          hadSuccess = true;
+          allRows.push(...(res.data as Record<string, unknown>[]));
+          if (res.data.length < batchSize) {
+            hasMore = false;
+          } else {
+            from += batchSize;
+          }
+        } else {
+          hasMore = false;
+        }
       }
-      if (res.error) {
-        fetchError = res.error;
+
+      if (hadSuccess && allRows.length > 0) {
+        data = allRows;
+        break;
       }
     }
 
@@ -339,52 +366,78 @@ export async function fetchPhotoLogsFromSupabase(
     }
 
     const studentMap = new Map<string, Mahasiswa>();
-    studentsList.forEach((s) => {
-      const clean = s.nim.toLowerCase().replace(/[\/\s_-]/g, '');
-      studentMap.set(clean, s);
-      studentMap.set(s.nim.toLowerCase(), s);
+    (studentsList || []).forEach((s) => {
+      if (s.nim) {
+        const clean = s.nim.toLowerCase().replace(/[\/\s_-]/g, '');
+        studentMap.set(clean, s);
+        studentMap.set(s.nim.toLowerCase().trim(), s);
+      }
     });
 
     const records: PhotoRecord[] = data.map((row) => {
-      let uploaderNim = String(row.user_a_nim || row.nim_a || row.user_a || row.uploader_nim || '');
-      let targetNim = String(row.user_b_nim || row.nim_b || row.user_b || row.target_nim || '');
-      
-      const pairKey = (row.pair_key as string) || '';
-      if ((!uploaderNim || !targetNim) && pairKey && pairKey.includes('_')) {
-        const parts = pairKey.split('_');
-        if (!uploaderNim && parts[0]) uploaderNim = parts[0];
-        if (!targetNim && parts[1]) targetNim = parts[1];
+      let uploaderNim = findValue(row, [
+        'user_a_nim',
+        'nim_a',
+        'user_a',
+        'uploader_nim',
+        'user_nim_a',
+        'nim1',
+        'user1',
+        'nim_uploader',
+      ]);
+      let targetNim = findValue(row, [
+        'user_b_nim',
+        'nim_b',
+        'user_b',
+        'target_nim',
+        'user_nim_b',
+        'nim2',
+        'user2',
+        'nim_target',
+      ]);
+
+      const pairKey = findValue(row, ['pair_key', 'pairkey', 'pair', 'pair_id']);
+      if (pairKey) {
+        const parts = pairKey.split(/[_|:-]/).map((p) => p.trim()).filter(Boolean);
+        if ((!uploaderNim || !targetNim) && parts.length >= 2) {
+          if (!uploaderNim) uploaderNim = parts[0];
+          if (!targetNim) targetNim = parts[1];
+        }
       }
 
       const uploaderClean = uploaderNim.toLowerCase().replace(/[\/\s_-]/g, '');
       const targetClean = targetNim.toLowerCase().replace(/[\/\s_-]/g, '');
 
-      const uploader = studentMap.get(uploaderClean);
-      const target = studentMap.get(targetClean);
+      const uploader = studentMap.get(uploaderClean) || studentMap.get(uploaderNim.toLowerCase().trim());
+      const target = studentMap.get(targetClean) || studentMap.get(targetNim.toLowerCase().trim());
 
       const rawPhotoUrl =
-        (row.photo_url_a as string) ||
-        (row.photo_url_b as string) ||
-        (row.photo_url as string) ||
-        (row.url as string) ||
+        findValue(row, ['photo_url_a', 'photo_url_b', 'photo_url', 'url', 'image_url', 'photo']) ||
         undefined;
 
+      const driveFileIdA = findValue(row, ['drive_file_id_a', 'drive_file_id', 'file_id_a', 'file_id']) || undefined;
+      const driveFileIdB = findValue(row, ['drive_file_id_b', 'file_id_b']) || undefined;
+      const photoUrlA = findValue(row, ['photo_url_a', 'photo_url']) || undefined;
+      const photoUrlB = findValue(row, ['photo_url_b']) || undefined;
+
+      const effectivePairKey = pairKey || (uploaderNim && targetNim ? `${uploaderNim}_${targetNim}` : undefined);
+
       return {
-        id: String(row.id || `photo-${uploaderNim}-${targetNim}`),
+        id: String(row.id || `photo-${uploaderNim}-${targetNim}-${Date.now()}`),
         uploaderNim,
         uploaderNama: uploader ? uploader.namaLengkap : uploaderNim,
         targetNim,
         targetNama: target ? target.namaLengkap : targetNim,
         targetKelompok: target?.kelompok,
-        timestamp: String(row.created_at || row.timestamp || new Date().toISOString()),
+        timestamp: findValue(row, ['created_at', 'timestamp', 'waktu']) || new Date().toISOString(),
         photoUrl: rawPhotoUrl,
         photoFileName: `${target?.namaLengkap || targetNim}_${targetNim.replace(/[\/\s]/g, '-')}.jpg`,
         driveFolderUrl: target?.driveFolderUrl,
-        pairKey: (row.pair_key as string) || undefined,
-        driveFileIdA: (row.drive_file_id_a as string) || undefined,
-        driveFileIdB: (row.drive_file_id_b as string) || undefined,
-        photoUrlA: (row.photo_url_a as string) || undefined,
-        photoUrlB: (row.photo_url_b as string) || undefined,
+        pairKey: effectivePairKey,
+        driveFileIdA,
+        driveFileIdB,
+        photoUrlA,
+        photoUrlB,
       };
     });
 
@@ -639,10 +692,13 @@ export async function fetchPhotoTrackingFromSupabase(
   if (!supabase || !userKey) return {};
 
   try {
+    const cleanUser = userKey.trim();
+
+    // Query photo_tracking for this user
     const { data, error } = await supabase
       .from(DEFAULT_PHOTO_TRACKING_TABLE)
-      .select('target_nim, is_checked')
-      .eq('user_id', userKey);
+      .select('target_nim, is_checked, user_id')
+      .eq('user_id', cleanUser);
 
     if (error) {
       console.warn('Failed to fetch photo_tracking:', error.message);
@@ -652,7 +708,17 @@ export async function fetchPhotoTrackingFromSupabase(
     const trackingMap: Record<string, boolean> = {};
     if (data) {
       data.forEach((row: { target_nim: string; is_checked: boolean }) => {
-        trackingMap[row.target_nim] = row.is_checked;
+        if (row.target_nim) {
+          const isTrue = row.is_checked === true || String(row.is_checked) === 'true';
+          const targetStr = String(row.target_nim);
+          const cleanTarget = targetStr.trim();
+          const normTarget = cleanTarget.toLowerCase().replace(/[\/\s_-]/g, '');
+
+          trackingMap[targetStr] = isTrue;
+          trackingMap[cleanTarget] = isTrue;
+          trackingMap[cleanTarget.toUpperCase()] = isTrue;
+          trackingMap[normTarget] = isTrue;
+        }
       });
     }
     return trackingMap;

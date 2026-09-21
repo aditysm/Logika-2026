@@ -330,21 +330,66 @@ export function savePhotoRecord(
   return newRecord;
 }
 
-export function hasTakenPhoto(
-  records: PhotoRecord[],
+export function matchPairRecord(
+  r: PhotoRecord,
   nim1?: string,
   nim2?: string
 ): boolean {
   if (!nim1 || !nim2) return false;
   const n1 = normalizeNim(nim1);
   const n2 = normalizeNim(nim2);
-  if (n1 === n2) return false;
+  if (!n1 || !n2 || n1 === n2) return false;
 
-  return records.some(
-    (r) =>
-      (normalizeNim(r.uploaderNim) === n1 && normalizeNim(r.targetNim) === n2) ||
-      (normalizeNim(r.uploaderNim) === n2 && normalizeNim(r.targetNim) === n1)
-  );
+  const upNorm = normalizeNim(r.uploaderNim);
+  const tgNorm = normalizeNim(r.targetNim);
+
+  // 1. Direct match on uploader and target NIMs in either direction
+  if (
+    (upNorm === n1 && tgNorm === n2) ||
+    (upNorm === n2 && tgNorm === n1)
+  ) {
+    return true;
+  }
+
+  // 2. Pair key match (e.g. "F1D02610007_F1D02610036", "f1d02610007_f1d02610036")
+  if (r.pairKey) {
+    const pkNorm = normalizeNim(r.pairKey);
+    if (pkNorm === `${n1}${n2}` || pkNorm === `${n2}${n1}`) {
+      return true;
+    }
+    const pkParts = r.pairKey.split(/[_|:-]/).map(normalizeNim).filter(Boolean);
+    if (pkParts.length >= 2) {
+      if (
+        (pkParts.includes(n1) && pkParts.includes(n2)) ||
+        (pkParts[0] === n1 && pkParts[1] === n2) ||
+        (pkParts[0] === n2 && pkParts[1] === n1)
+      ) {
+        return true;
+      }
+    }
+    if (pkNorm.includes(n1) && pkNorm.includes(n2)) {
+      return true;
+    }
+  }
+
+  // 3. Fallback check on ID containing both NIMs
+  if (r.id) {
+    const idNorm = normalizeNim(r.id);
+    if (idNorm.includes(n1) && idNorm.includes(n2)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function hasTakenPhoto(
+  records: PhotoRecord[],
+  nim1?: string,
+  nim2?: string
+): boolean {
+  if (!Array.isArray(records) || !nim1 || !nim2) return false;
+  return records.some((r) => matchPairRecord(r, nim1, nim2));
 }
 
 export function getPhotoWithTarget(
@@ -352,15 +397,8 @@ export function getPhotoWithTarget(
   nim1?: string,
   nim2?: string
 ): PhotoRecord | undefined {
-  if (!nim1 || !nim2) return undefined;
-  const n1 = normalizeNim(nim1);
-  const n2 = normalizeNim(nim2);
-
-  return records.find(
-    (r) =>
-      (normalizeNim(r.uploaderNim) === n1 && normalizeNim(r.targetNim) === n2) ||
-      (normalizeNim(r.uploaderNim) === n2 && normalizeNim(r.targetNim) === n1)
-  );
+  if (!Array.isArray(records) || !nim1 || !nim2) return undefined;
+  return records.find((r) => matchPairRecord(r, nim1, nim2));
 }
 
 export function mergePhotoRecords(
@@ -372,35 +410,56 @@ export function mergePhotoRecords(
     return local || [];
   }
 
-  const localMap = new Map<string, PhotoRecord>();
+  const map = new Map<string, PhotoRecord>();
 
-  const getPairKey = (r: PhotoRecord) => {
-    const n1 = normalizeNim(r.uploaderNim);
-    const n2 = normalizeNim(r.targetNim);
-    if (!n1 && !n2) return r.id || Math.random().toString();
-    return n1 < n2 ? `${n1}_${n2}` : `${n2}_${n1}`;
+  const getRecordKey = (r: PhotoRecord): string => {
+    let n1 = normalizeNim(r.uploaderNim);
+    let n2 = normalizeNim(r.targetNim);
+
+    if ((!n1 || !n2) && r.pairKey) {
+      const parts = r.pairKey.split(/[_|:-]/).map(normalizeNim).filter(Boolean);
+      if (parts.length >= 2) {
+        n1 = parts[0];
+        n2 = parts[1];
+      }
+    }
+
+    if (n1 && n2) {
+      return n1 < n2 ? `${n1}_${n2}` : `${n2}_${n1}`;
+    }
+    if (r.pairKey) {
+      return normalizeNim(r.pairKey);
+    }
+    return r.id || Math.random().toString();
   };
 
+  // 1. Put local records
   (local || []).forEach((r) => {
-    const key = getPairKey(r);
-    if (key) localMap.set(key, r);
+    const key = getRecordKey(r);
+    if (key) map.set(key, r);
   });
 
-  // Since remote database is authoritative when online:
-  // Construct result strictly from remote records, enriching with local photoUrl preview cache
-  const merged: PhotoRecord[] = (remote || []).map((r) => {
-    const key = getPairKey(r);
-    const existingLocal = localMap.get(key);
-    return {
-      ...existingLocal,
+  // 2. Merge remote records (authoritative for Drive IDs / URLs, retaining local previews)
+  (remote || []).forEach((r) => {
+    const key = getRecordKey(r);
+    const existing = map.get(key);
+    map.set(key, {
+      ...existing,
       ...r,
-      photoUrl: r.photoUrl || existingLocal?.photoUrl,
-      photoFileName: r.photoFileName || existingLocal?.photoFileName,
-      driveFolderUrl: r.driveFolderUrl || existingLocal?.driveFolderUrl,
-    };
+      uploaderNim: r.uploaderNim || existing?.uploaderNim || '',
+      targetNim: r.targetNim || existing?.targetNim || '',
+      photoUrl: r.photoUrl || existing?.photoUrl,
+      photoFileName: r.photoFileName || existing?.photoFileName,
+      driveFolderUrl: r.driveFolderUrl || existing?.driveFolderUrl,
+      driveFileIdA: r.driveFileIdA || existing?.driveFileIdA,
+      driveFileIdB: r.driveFileIdB || existing?.driveFileIdB,
+      photoUrlA: r.photoUrlA || existing?.photoUrlA,
+      photoUrlB: r.photoUrlB || existing?.photoUrlB,
+      pairKey: r.pairKey || existing?.pairKey,
+    });
   });
 
-  return merged;
+  return Array.from(map.values());
 }
 
 export function generateNextFileName(
