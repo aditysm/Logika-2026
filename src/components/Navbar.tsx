@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck, CheckCircle2, ArrowRight } from 'lucide-react';
+import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck, CheckCircle2, ArrowRight, Database } from 'lucide-react';
 import { ConnectionStatus, Mahasiswa } from '../types';
 
 interface NavbarProps {
@@ -16,6 +16,7 @@ interface NavbarProps {
   onOpenLogin?: () => void;
   onOpenPremiumModal?: () => void;
   onOpenTracking?: () => void;
+  onOpenAdmin?: () => void;
   isLoginPage?: boolean;
   onContinueWithoutAccount?: () => void;
 }
@@ -32,6 +33,7 @@ export function Navbar({
   onOpenLogin,
   onOpenPremiumModal,
   onOpenTracking,
+  onOpenAdmin,
   isLoginPage,
   onContinueWithoutAccount,
 }: NavbarProps) {
@@ -198,6 +200,28 @@ export function Navbar({
                             </p>
                           </div>
                         </button>
+
+                        {/* Mode Admin - Only visible for F1D02610029 */}
+                        {currentUser?.nim?.trim().toUpperCase().replace(/[\/\s_-]/g, '') === 'F1D02610029' && (
+                          <button
+                            id="menu-btn-mode-admin"
+                            type="button"
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              onOpenAdmin?.();
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors text-left cursor-pointer"
+                            role="menuitem"
+                          >
+                            <Database className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <span>Mode Admin</span>
+                              <p className="text-[10px] font-normal text-slate-400 truncate">
+                                Kelola tabel database Supabase
+                              </p>
+                            </div>
+                          </button>
+                        )}
 
                         <button
                           id="menu-btn-tracking-foto"

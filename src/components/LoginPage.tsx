@@ -1,9 +1,18 @@
 import { useState, FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, Loader2, LogIn, Search, ShieldCheck, Sparkles, UserCheck, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, KeyRound, Loader2, LogIn, Search, ShieldAlert, ShieldCheck, Sparkles, UserCheck, X } from 'lucide-react';
 import { Mahasiswa } from '../types';
 import { findStudentInList } from '../lib/photoStorage';
+
+const PROTECTED_NIM = 'F1D02610029';
+const REQUIRED_PASSKEY = 'qwerty31';
+
+function isProtectedNim(nim?: string | null): boolean {
+  if (!nim) return false;
+  const clean = nim.trim().toUpperCase().replace(/[\/\s_-]/g, '');
+  return clean === PROTECTED_NIM.replace(/[\/\s_-]/g, '');
+}
 
 interface LoginPageProps {
   students: Mahasiswa[];
@@ -31,6 +40,10 @@ export function LoginPage({
   const [showQuickSelect, setShowQuickSelect] = useState(false);
   const [quickFilter, setQuickFilter] = useState('');
 
+  // Protected NIM states
+  const [passkeyInput, setPasskeyInput] = useState('');
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
+
   const showToastError = (msg: string) => {
     setToastError(msg);
     setTimeout(() => {
@@ -41,6 +54,8 @@ export function LoginPage({
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setPasskeyInput('');
+    setPasskeyError(null);
 
     const trimmed = nimInput.trim();
     if (!trimmed) {
@@ -63,18 +78,33 @@ export function LoginPage({
 
   const handleSelectStudent = (student: Mahasiswa) => {
     setErrorMsg(null);
+    setPasskeyInput('');
+    setPasskeyError(null);
     setPendingConfirmStudent(student);
   };
 
   const handleConfirmLogin = () => {
-    if (pendingConfirmStudent) {
-      onLogin(pendingConfirmStudent.nim);
-      setPendingConfirmStudent(null);
+    if (!pendingConfirmStudent) return;
+
+    if (isProtectedNim(pendingConfirmStudent.nim)) {
+      if (passkeyInput.trim() !== REQUIRED_PASSKEY) {
+        const msg = 'Kunci akses keamanan tidak sesuai. Silakan masukkan kunci otorisasi yang valid.';
+        setPasskeyError(msg);
+        showToastError(msg);
+        return;
+      }
     }
+
+    onLogin(pendingConfirmStudent.nim);
+    setPendingConfirmStudent(null);
+    setPasskeyInput('');
+    setPasskeyError(null);
   };
 
   const handleCancelConfirm = () => {
     setPendingConfirmStudent(null);
+    setPasskeyInput('');
+    setPasskeyError(null);
     showToastError('Konfirmasi dibatalkan. Silakan periksa kembali NIM Anda.');
   };
 
@@ -387,6 +417,52 @@ export function LoginPage({
                   </span>
                 </div>
               </div>
+
+              {/* Special Passkey Protection for Protected NIM */}
+              {isProtectedNim(pendingConfirmStudent.nim) && (
+                <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 text-left space-y-2.5">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                    <KeyRound className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Otorisasi Akses Khusus</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    NIM ini memerlukan verifikasi kode otorisasi sebelum dapat masuk ke akun.
+                  </p>
+                  <div>
+                    <label htmlFor="input-passkey-protected" className="block text-[11px] font-semibold text-amber-950 mb-1">
+                      Kunci Akses
+                    </label>
+                    <input
+                      id="input-passkey-protected"
+                      type="password"
+                      autoFocus
+                      value={passkeyInput}
+                      onChange={(e) => {
+                        setPasskeyInput(e.target.value);
+                        if (passkeyError) setPasskeyError(null);
+                      }}
+                      placeholder="Masukkan kunci akses..."
+                      className={`w-full px-3 py-2 text-xs bg-white border rounded-xl font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                        passkeyError
+                          ? 'border-rose-300 focus:ring-rose-500 bg-rose-50/40'
+                          : 'border-amber-300 focus:ring-amber-500'
+                      }`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleConfirmLogin();
+                        }
+                      }}
+                    />
+                    {passkeyError && (
+                      <p className="text-[11px] text-rose-600 mt-1.5 flex items-center gap-1 font-medium">
+                        <span>&bull;</span>
+                        <span>{passkeyError}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Confirmation Action Buttons */}
               <div className="pt-2 flex flex-col-reverse sm:flex-row items-center gap-2.5">

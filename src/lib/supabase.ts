@@ -346,8 +346,16 @@ export async function fetchPhotoLogsFromSupabase(
     });
 
     const records: PhotoRecord[] = data.map((row) => {
-      const uploaderNim = String(row.user_a_nim || row.nim_a || row.user_a || row.uploader_nim || '');
-      const targetNim = String(row.user_b_nim || row.nim_b || row.user_b || row.target_nim || '');
+      let uploaderNim = String(row.user_a_nim || row.nim_a || row.user_a || row.uploader_nim || '');
+      let targetNim = String(row.user_b_nim || row.nim_b || row.user_b || row.target_nim || '');
+      
+      const pairKey = (row.pair_key as string) || '';
+      if ((!uploaderNim || !targetNim) && pairKey && pairKey.includes('_')) {
+        const parts = pairKey.split('_');
+        if (!uploaderNim && parts[0]) uploaderNim = parts[0];
+        if (!targetNim && parts[1]) targetNim = parts[1];
+      }
+
       const uploaderClean = uploaderNim.toLowerCase().replace(/[\/\s_-]/g, '');
       const targetClean = targetNim.toLowerCase().replace(/[\/\s_-]/g, '');
 

@@ -440,16 +440,38 @@ class PhotoService {
     // Cek apakah relasi foto pasangan ini sudah ada di database
     const { data: existingLog } = await supabase
       .from('photo_logs')
-      .select('id, pair_key, drive_file_id_a, photo_url_a, drive_file_id_b, photo_url_b')
+      .select('id, pair_key, user_a_nim, user_b_nim, drive_file_id_a, photo_url_a, drive_file_id_b, photo_url_b, created_at')
       .eq('pair_key', pairKey)
       .maybeSingle();
 
     if (existingLog) {
+      // Pastikan status tracking di photo_tracking juga tetap tersinkronisasi terchecklist
+      const now = new Date().toISOString();
+      await supabase.from('photo_tracking').upsert([
+        { user_id: userANim, target_nim: userBNim, is_checked: true, updated_at: now },
+        { user_id: userBNim, target_nim: userANim, is_checked: true, updated_at: now },
+      ], { onConflict: 'user_id,target_nim' });
+
+      // Jika kolom user_a_nim atau user_b_nim di record lama masih kosong, lengkapi datanya
+      if (!existingLog.user_a_nim || !existingLog.user_b_nim) {
+        await supabase
+          .from('photo_logs')
+          .update({
+            user_a_nim: userANim,
+            user_b_nim: userBNim,
+          })
+          .eq('id', existingLog.id);
+      }
+
       return {
         success: true,
         is_duplicate: true,
         message: "Foto untuk pasangan mahasiswa ini sudah diunggah sebelumnya!",
-        data: existingLog
+        data: {
+          ...existingLog,
+          user_a_nim: existingLog.user_a_nim || userANim,
+          user_b_nim: existingLog.user_b_nim || userBNim,
+        }
       };
     }
 

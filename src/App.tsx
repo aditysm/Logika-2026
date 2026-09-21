@@ -19,6 +19,7 @@ import { LogoutConfirmModal } from './components/LogoutConfirmModal';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { PricingPage } from './components/PricingPage';
 import { TrackingPage } from './components/TrackingPage';
+import { AdminModePage } from './components/AdminModePage';
 import { MainListView } from './components/MainListView';
 import { TierWarningBanner } from './components/TierWarningBanner';
 import { generateStudentReport } from './lib/reportGenerator';
@@ -391,6 +392,18 @@ export default function App() {
   };
 
   const handleCloseTracking = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
+  const handleOpenAdmin = () => {
+    navigate('/admin');
+  };
+
+  const handleCloseAdmin = () => {
     if (window.history.state && window.history.state.idx > 0) {
       navigate(-1);
     } else {
@@ -778,6 +791,7 @@ export default function App() {
         onOpenLogin={handleOpenLogin}
         onOpenPremiumModal={handleOpenPricing}
         onOpenTracking={handleOpenTracking}
+        onOpenAdmin={handleOpenAdmin}
         isLoginPage={location.pathname === '/login'}
         onContinueWithoutAccount={handleContinueWithoutAccount}
       />
@@ -1036,6 +1050,28 @@ export default function App() {
                   </motion.div>
                 ) : (
                   <Navigate to="/login?return=tracking" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                currentUser?.nim?.trim().toUpperCase().replace(/[\/\s_-]/g, '') === 'F1D02610029' ? (
+                  <motion.div
+                    key="admin-page"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                  >
+                    <AdminModePage
+                      currentUser={currentUser}
+                      onBack={handleCloseAdmin}
+                      onDataChanged={() => loadData({ force: true })}
+                    />
+                  </motion.div>
+                ) : (
+                  <Navigate to="/" replace />
                 )
               }
             />

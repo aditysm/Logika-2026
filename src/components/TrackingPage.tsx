@@ -21,6 +21,7 @@ import {
   fetchPhotoTrackingFromSupabase, 
   upsertPhotoTrackingInSupabase 
 } from '../lib/supabase';
+import { hasTakenPhoto } from '../lib/photoStorage';
 import { CustomSelect } from './CustomSelect';
 import { QRScannerModal } from './QRScannerModal';
 
@@ -170,10 +171,7 @@ export function TrackingPage({
   // Check if photo is actually uploaded in photo_logs
   const isUploaded = (targetNim: string) => {
     if (!currentUser?.nim) return false;
-    return photoRecords.some(r => 
-      (r.uploaderNim === currentUser.nim && r.targetNim === targetNim) ||
-      (r.uploaderNim === targetNim && r.targetNim === currentUser.nim)
-    );
+    return hasTakenPhoto(photoRecords, currentUser.nim, targetNim);
   };
 
   const checkedCount = Object.values(trackingMap).filter(v => v).length;
