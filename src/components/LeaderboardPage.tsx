@@ -204,23 +204,50 @@ export function LeaderboardPage({
       };
     });
 
-    // Sorting:
-    // 1. count DESC (progres jumlah teman terfoto menuju 100%)
-    // 2. latestUploadTimestamp ASC (waktu tercepat saat mencapai progress tersebut)
-    // 3. totalUploads DESC (jumlah upload langsung terbanyak)
-    // 4. nama ASC
+    // Sorting (Opsi A - Prioritas Keaktifan & Jumlah Upload Langsung):
+    // 1. Peserta yang sudah mencapai 100% (count >= totalTarget) langsung terkunci di posisi teratas (Podium Juara)
+    //    - Di antara yang sudah 100%: urutkan berdasarkan waktu tercepat mencapai 100% (latestUploadTimestamp ASC)
+    // 2. Untuk peserta yang belum 100%:
+    //    - Prioritas 1: Jumlah Upload Langsung terbanyak (totalUploads DESC)
+    //    - Prioritas 2: Progres / Jumlah teman terfoto (count DESC / percentage DESC)
+    //    - Prioritas 3: Waktu unggah tercepat (latestUploadTimestamp ASC)
+    //    - Prioritas 4: Nama lengkap (A-Z)
     list.sort((a, b) => {
-      if (b.count !== a.count) {
-        return b.count - a.count;
-      }
-      if (a.count > 0 && b.count > 0) {
+      const aIsComplete = totalTarget > 0 && a.count >= totalTarget;
+      const bIsComplete = totalTarget > 0 && b.count >= totalTarget;
+
+      // Kunci pemenang 100%: yang sudah 100% selalu di atas yang belum 100%
+      if (aIsComplete && !bIsComplete) return -1;
+      if (!aIsComplete && bIsComplete) return 1;
+
+      // Jika KEDUANYA sudah mencapai 100%: urutkan siapa yang paling cepat menyelesaikannya (waktu tercepat)
+      if (aIsComplete && bIsComplete) {
         if (a.latestUploadTimestamp && b.latestUploadTimestamp && a.latestUploadTimestamp !== b.latestUploadTimestamp) {
           return a.latestUploadTimestamp - b.latestUploadTimestamp;
         }
+        if (b.totalUploads !== a.totalUploads) {
+          return b.totalUploads - a.totalUploads;
+        }
+        return a.student.namaLengkap.localeCompare(b.student.namaLengkap);
       }
+
+      // Untuk peserta yang BELUM 100% (Opsi A):
+      // 1. Prioritas Jumlah Upload Langsung terbanyak
       if (b.totalUploads !== a.totalUploads) {
         return b.totalUploads - a.totalUploads;
       }
+
+      // 2. Jika Jumlah Upload Langsung sama, bandingkan progres teman terfoto (count / persentase)
+      if (b.count !== a.count) {
+        return b.count - a.count;
+      }
+
+      // 3. Jika progres juga sama, bandingkan waktu unggah tercepat
+      if (a.latestUploadTimestamp && b.latestUploadTimestamp && a.latestUploadTimestamp !== b.latestUploadTimestamp) {
+        return a.latestUploadTimestamp - b.latestUploadTimestamp;
+      }
+
+      // 4. Nama A-Z
       return a.student.namaLengkap.localeCompare(b.student.namaLengkap);
     });
 
@@ -419,7 +446,7 @@ export function LeaderboardPage({
                     <span>Progres Foto Bersama Teman</span>
                   </p>
                   <p className="text-[11px] text-slate-600 leading-relaxed pl-5">
-                    Progres dihitung dari seluruh teman unik yang berhasil difoto bersama, baik yang Anda unggah sendiri maupun yang diunggah oleh teman Anda.
+                    Progres dihitung dari jumlah teman yang berhasil difoto bersama, baik foto yang Anda unggah sendiri maupun foto yang diunggah oleh teman Anda.
                   </p>
                 </div>
 
@@ -436,10 +463,10 @@ export function LeaderboardPage({
                 <div className="p-3 bg-white rounded-2xl border border-slate-200/80 space-y-1 shadow-2xs">
                   <p className="font-bold text-slate-900 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span>Prioritas Urutan &amp; Waktu Tercepat</span>
+                    <span>Prioritas Urutan Peringkat</span>
                   </p>
                   <p className="text-[11px] text-slate-600 leading-relaxed pl-5">
-                    Peringkat diurutkan dari progres teman unik terbanyak, waktu penyelesaian paling cepat (WITA), dan jumlah unggahan langsung.
+                    Peringkat diutamakan dari <strong>Jumlah Upload Langsung terbanyak</strong>, kemudian progres foto (%), dan waktu unggah tercepat (WITA). Peserta yang mencapai 100% lebih awal langsung terkunci di Podium Juara.
                   </p>
                 </div>
 
@@ -534,7 +561,7 @@ export function LeaderboardPage({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 sm:flex items-center gap-2 sm:gap-4 bg-white/10 backdrop-blur-xs p-2.5 sm:px-4 sm:py-2.5 rounded-2xl border border-white/20">
+            <div className="grid grid-cols-2 sm:grid-cols-4 sm:flex items-center gap-2 sm:gap-4 bg-white/10 backdrop-blur-xs p-2.5 sm:px-4 sm:py-2.5 rounded-2xl border border-white/20">
               <div className="text-center sm:text-left">
                 <p className="text-[9px] sm:text-[10px] text-blue-100 uppercase font-bold truncate">Teman Difoto</p>
                 <p className="text-base sm:text-lg font-black leading-none mt-1">
@@ -543,7 +570,15 @@ export function LeaderboardPage({
                 </p>
               </div>
               <div className="hidden sm:block h-8 w-px bg-white/20" />
-              <div className="text-center sm:text-left border-x border-white/20 sm:border-0 px-2 sm:px-0">
+              <div className="text-center sm:text-left">
+                <p className="text-[9px] sm:text-[10px] text-blue-100 uppercase font-bold truncate">Upload Langsung</p>
+                <p className="text-base sm:text-lg font-black leading-none mt-1 text-emerald-300">
+                  {currentUserEntry.totalUploads}{' '}
+                  <span className="text-[10px] sm:text-xs font-normal opacity-80 text-white">foto</span>
+                </p>
+              </div>
+              <div className="hidden sm:block h-8 w-px bg-white/20" />
+              <div className="text-center sm:text-left">
                 <p className="text-[9px] sm:text-[10px] text-blue-100 uppercase font-bold truncate">Progres</p>
                 <p className="text-base sm:text-lg font-black leading-none mt-1 text-amber-300">
                   {currentUserEntry.percentage}%
@@ -575,7 +610,7 @@ export function LeaderboardPage({
               <span>Podium Juara</span>
             </h2>
             <p className="text-[11px] sm:text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              Dihitung berdasarkan jumlah teman unik yang berhasil difoto bersama dan waktu penyelesaian tercepat
+              Dihitung berdasarkan jumlah upload langsung terbanyak, capaian foto bersama, dan waktu tercepat
             </p>
           </div>
 
@@ -840,7 +875,7 @@ export function LeaderboardPage({
             <span>Daftar Peringkat ({filteredData.length} Mahasiswa)</span>
           </h3>
           <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-            Urutan: Progres Terbanyak &amp; Waktu Tercepat
+            Urutan: Upload Terbanyak, Progres Foto &amp; Waktu Tercepat
           </span>
         </div>
 
@@ -916,6 +951,14 @@ export function LeaderboardPage({
 
                   {/* Progress & Speed Stats */}
                   <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-5 pl-11 sm:pl-0">
+                    {/* Direct Uploads Count */}
+                    <div className="text-left sm:text-right shrink-0">
+                      <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase">Upload Langsung</p>
+                      <p className="text-[11px] sm:text-xs font-semibold text-slate-700">
+                        {item.totalUploads} foto
+                      </p>
+                    </div>
+
                     {/* Time of latest upload */}
                     <div className="text-left sm:text-right shrink-0">
                       <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase">Foto Terakhir</p>
