@@ -184,13 +184,19 @@ export function UploadPhotoPage({
             console.log('Foto ini sudah pernah diunggah sebelumnya (duplikasi terdeteksi).');
           }
         } else {
-          console.warn('Edge function upload error:', uploadRes.error);
+          console.error('Edge function upload error:', uploadRes.error);
+          console.error('Edge function upload error full raw:', {
+            error: uploadRes.error,
+            rawError: uploadRes.rawError,
+            uploaderNim: currentUser.nim,
+            targetNim: targetStudent.nim,
+          });
           isUploadSuccess = false;
-          serverError = getIntuitiveErrorMessage(uploadRes.error, 'Gagal mengunggah foto ke Google Drive.');
+          serverError = uploadRes.error || 'Gagal mengunggah foto ke Google Drive.';
         }
       }
     } catch (err: unknown) {
-      console.warn('Network upload error:', err);
+      console.error('Network upload error full raw:', err);
       isUploadSuccess = false;
       serverError = getIntuitiveErrorMessage(err, 'Koneksi internet terputus atau server tidak merespons.');
     }

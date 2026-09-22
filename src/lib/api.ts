@@ -1,6 +1,22 @@
 import { getIntuitiveErrorMessage } from './errorHandler';
 import { ReportRequest } from '../types';
-import { SUPABASE_ANON_KEY_IN_CODE, getSupabaseClient } from './supabase';
+import { SUPABASE_ANON_KEY_IN_CODE, getSupabaseClient, getActiveSupabaseConfig } from './supabase';
+
+/**
+ * Helper to build Edge Function authorization and API key headers
+ */
+export function getEdgeFunctionHeaders(customHeaders?: Record<string, string>): Record<string, string> {
+  const config = getActiveSupabaseConfig();
+  const headers: Record<string, string> = {
+    ...customHeaders,
+  };
+  const key = config.anonKey || SUPABASE_ANON_KEY_IN_CODE;
+  if (key) {
+    headers['apikey'] = key;
+    headers['Authorization'] = `Bearer ${key}`;
+  }
+  return headers;
+}
 
 /**
  * API Client for interacting with the Supabase Edge Function
@@ -121,10 +137,12 @@ export async function updateProfilUser(
       payload.drive_folder_id = String(source.drive_folder_id).trim();
     }
 
+    const jsonHeaders = getEdgeFunctionHeaders({ 'Content-Type': 'application/json' });
+
     // Try primary route /update-profile
     let response = await fetch(`${SUPABASE_EDGE_FUNCTION_URL}/update-profile`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonHeaders,
       body: JSON.stringify(payload),
     }).catch(() => null);
 
@@ -132,7 +150,7 @@ export async function updateProfilUser(
     if (!response || response.status === 404 || response.status === 405) {
       response = await fetch(`${SUPABASE_EDGE_FUNCTION_URL}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: jsonHeaders,
         body: JSON.stringify(payload),
       }).catch(() => null);
     }
@@ -175,7 +193,8 @@ export async function cekFotoDiDrive(
   try {
     const cleanFolderId = extractDriveFolderId(folderIdTeman) || folderIdTeman;
     const response = await fetch(
-      `${SUPABASE_EDGE_FUNCTION_URL}?action=list-drive&folder_id=${encodeURIComponent(cleanFolderId)}`
+      `${SUPABASE_EDGE_FUNCTION_URL}?action=list-drive&folder_id=${encodeURIComponent(cleanFolderId)}`,
+      { headers: getEdgeFunctionHeaders() }
     );
 
     const result = await response.json().catch(() => null);
@@ -220,6 +239,15 @@ export async function cekFotoDiDrive(
  * - file_name_a / name_a
  * - file_name_b / name_b
  */
+export interface RawErrorDetail {
+  status?: number;
+  statusText?: string;
+  url?: string;
+  headers?: Record<string, string>;
+  rawResponseBody?: string;
+  parsedResult?: unknown;
+}
+
 export async function uploadFotoBersama(params: {
   file: File;
   nimA: string; // Uploader (User A)
@@ -236,7 +264,7 @@ export async function uploadFotoBersama(params: {
   folderIdTarget?: string;
   namaTeman?: string;
   totalFotoSekarang?: number;
-}): Promise<{ success: boolean; data?: UploadPhotoResponse; error?: string }> {
+}): Promise<{ success: boolean; data?: UploadPhotoResponse; error?: string; rawError?: RawErrorDetail }> {
   const {
     file,
     nimA,
@@ -303,38 +331,84 @@ export async function uploadFotoBersama(params: {
   formData.append('name_b', fileNameB);
   formData.append('file_name', fileNameA);
 
+  const edgeHeaders = getEdgeFunctionHeaders();
+
   try {
     // Try primary route /upload-photo
     let response = await fetch(`${SUPABASE_EDGE_FUNCTION_URL}/upload-photo`, {
       method: 'POST',
+      headers: edgeHeaders,
       body: formData,
-    }).catch(() => null);
+    }).catch((networkErr) => {
+      console.warn('Primary Edge function endpoint fetch error:', networkErr);
+      return null;
+    });
 
     // Fallback if subpath routing returns 404/405
     if (!response || response.status === 404 || response.status === 405) {
       response = await fetch(`${SUPABASE_EDGE_FUNCTION_URL}`, {
         method: 'POST',
+        headers: edgeHeaders,
         body: formData,
-      }).catch(() => null);
+      }).catch((networkErr) => {
+        console.warn('Fallback Edge function endpoint fetch error:', networkErr);
+        return null;
+      });
     }
 
     if (!response) {
-      return { success: false, error: 'Tidak dapat terhubung ke server penyimpanan foto. Silakan periksa koneksi internet Anda atau coba lagi nanti.' };
+      const connErr = 'Tidak dapat terhubung ke server penyimpanan foto. Silakan periksa koneksi internet Anda atau coba lagi nanti.';
+      console.error('Edge function upload error (FULL RAW - NO CONNECTION):', {
+        endpoint: SUPABASE_EDGE_FUNCTION_URL,
+        headersSent: edgeHeaders,
+      });
+      return { success: false, error: connErr };
     }
 
-    const result: UploadPhotoResponse = await response.json().catch(() => ({}));
+    const rawText = await response.text().catch(() => '');
+    let result: UploadPhotoResponse = {};
+    try {
+      result = JSON.parse(rawText);
+    } catch {
+      result = { error: rawText };
+    }
 
     if (!response.ok) {
+      const responseHeadersObj: Record<string, string> = {};
+      try {
+        response.headers.forEach((val, key) => {
+          responseHeadersObj[key] = val;
+        });
+      } catch {
+        // Ignore header iteration errors
+      }
+
+      const fullRawDetails: RawErrorDetail = {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        headers: responseHeadersObj,
+        rawResponseBody: rawText,
+        parsedResult: result,
+      };
+
+      console.error('Edge function upload error (FULL RAW):', fullRawDetails);
+
       const rawErr =
-        result?.error || result?.message || `Upload gagal dengan kode status ${response.status}`;
-      return { success: false, error: getIntuitiveErrorMessage({ status: response.status, message: rawErr }) };
+        result?.error || result?.message || `Upload gagal dengan kode status ${response.status}: ${rawText}`;
+
+      return {
+        success: false,
+        error: getIntuitiveErrorMessage({ status: response.status, message: rawErr }),
+        rawError: fullRawDetails,
+      };
     }
 
     return { success: true, data: result };
   } catch (error: unknown) {
+    console.error('Edge function upload error (FULL RAW EXCEPTION):', error);
     const msg = getIntuitiveErrorMessage(error, 'Koneksi ke backend upload gagal.');
-    console.error('Upload gagal:', error);
-    return { success: false, error: msg };
+    return { success: false, error: msg, rawError: { rawResponseBody: String(error) } };
   }
 }
 
