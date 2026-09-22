@@ -214,7 +214,7 @@ export function LoginPage({
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
               {targetStudentForUpload
-                ? 'Identifikasi diri Anda untuk mencatat foto bersama ke database.'
+                ? 'Identifikasi diri Anda untuk mencatat foto bersama.'
                 : returnParam === 'tracking'
                 ? 'Masuk ke akun Anda untuk membuka halaman Photo Tracking.'
                 : returnParam === 'pricing'

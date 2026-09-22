@@ -231,6 +231,30 @@ export default function App() {
     }
   }, [location.pathname]);
 
+  // Handle SPA redirects from GitHub Pages / CNAME 404 handler (e.g. /#tracking, /#rangking, /#mhs=...)
+  useEffect(() => {
+    const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
+    if (rawHash) {
+      if (rawHash.startsWith('mhs=')) {
+        const nim = rawHash.replace('mhs=', '');
+        navigate(`/mhs/${nim}`, { replace: true });
+      } else if (rawHash.startsWith('upload=')) {
+        const nim = rawHash.replace('upload=', '');
+        navigate(`/upload/${nim}`, { replace: true });
+      } else if (rawHash === 'tracking' || rawHash.startsWith('tracking?')) {
+        navigate('/tracking', { replace: true });
+      } else if (rawHash === 'rangking' || rawHash === 'leaderboard' || rawHash.startsWith('rangking?') || rawHash.startsWith('leaderboard?')) {
+        navigate('/rangking', { replace: true });
+      } else if (rawHash === 'pricing' || rawHash.startsWith('pricing?')) {
+        navigate('/pricing', { replace: true });
+      } else if (rawHash === 'profile' || rawHash.startsWith('profile?')) {
+        navigate('/profile', { replace: true });
+      } else if (rawHash === 'login' || rawHash.startsWith('login?')) {
+        navigate('/login', { replace: true });
+      }
+    }
+  }, [navigate]);
+
   const studentsRef = useRef<Mahasiswa[]>([]);
 
   const loadData = useCallback(async (options: { force?: boolean; silent?: boolean } = {}) => {
@@ -276,7 +300,7 @@ export default function App() {
       setRefreshKey((prev) => prev + 1);
 
       if (force && !silent) {
-        showToast('Data berhasil diperbarui langsung dari database.', 'success', 3000, 'Data Terkini');
+        showToast('Data berhasil diperbarui dan disinkronkan.', 'success', 3000, 'Data Terkini');
       }
     } catch (err) {
       console.error('Error fetching students:', err);

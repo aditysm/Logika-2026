@@ -47,6 +47,7 @@ export function LeaderboardPage({
   photoRecords,
   currentUser,
   onBack,
+  onRefresh,
 }: LeaderboardPageProps) {
   // Format local date YYYY-MM-DD
   const todayStr = useMemo(() => {
@@ -61,6 +62,11 @@ export function LeaderboardPage({
   const [currentPage, setCurrentPage] = useState(1);
 
   const ITEMS_PER_PAGE = 15;
+
+  // Auto-refresh fresh data every time user enters leaderboard
+  useEffect(() => {
+    onRefresh();
+  }, []);
 
   // Selected date key for daily reset calculation (cannot be after today)
   const activeDateKey = useMemo(() => {
@@ -109,14 +115,16 @@ export function LeaderboardPage({
   }, [students, groupOptions]);
 
   // Aggregate stats per student for the selected period
-  // CRITICAL RULE: "dia yg upload itu dihitung sebagai capaian"
+  // Comprehensive mutual photo calculation:
+  // Photos uploaded by this student OR uploaded by a friend with this student
+  // both count towards companion completion and fastest timestamp!
   const leaderboardData = useMemo(() => {
     const studentMap = new Map<
       string,
       {
         student: Mahasiswa;
-        count: number; // Unique companion targets uploaded by this student
-        totalUploads: number; // Total photos uploaded by this student
+        count: number; // Unique companion targets photographed with this student
+        totalUploads: number; // Total photos uploaded directly by this student
         uniqueTargets: Set<string>;
         firstUploadTimestamp: number | null;
         latestUploadTimestamp: number | null;
@@ -135,7 +143,7 @@ export function LeaderboardPage({
       });
     });
 
-    // Process photo records: STRICTLY ONLY ATTRIBUTE TO UPLOADER
+    // Process all photo records
     (photoRecords || []).forEach((r) => {
       if (!r.timestamp) return;
       const recDate = new Date(r.timestamp);
@@ -149,25 +157,40 @@ export function LeaderboardPage({
       }
 
       const uploaderNorm = normalizeNim(r.uploaderNim);
+      const targetNorm = normalizeNim(r.targetNim);
+      const timeVal = recDate.getTime();
+
+      // 1. Attribute to Uploader
       if (uploaderNorm && studentMap.has(uploaderNorm)) {
-        const entry = studentMap.get(uploaderNorm)!;
-        entry.totalUploads += 1;
+        const uploaderEntry = studentMap.get(uploaderNorm)!;
+        uploaderEntry.totalUploads += 1;
 
-        const targetNorm = normalizeNim(r.targetNim);
         if (targetNorm && targetNorm !== uploaderNorm) {
-          entry.uniqueTargets.add(targetNorm);
+          uploaderEntry.uniqueTargets.add(targetNorm);
         } else {
-          entry.uniqueTargets.add(`photo-${r.id || entry.totalUploads}`);
+          uploaderEntry.uniqueTargets.add(`photo-${r.id || uploaderEntry.totalUploads}`);
         }
+        uploaderEntry.count = uploaderEntry.uniqueTargets.size;
 
-        entry.count = entry.uniqueTargets.size;
-
-        const timeVal = recDate.getTime();
-        if (entry.firstUploadTimestamp === null || timeVal < entry.firstUploadTimestamp) {
-          entry.firstUploadTimestamp = timeVal;
+        if (uploaderEntry.firstUploadTimestamp === null || timeVal < uploaderEntry.firstUploadTimestamp) {
+          uploaderEntry.firstUploadTimestamp = timeVal;
         }
-        if (entry.latestUploadTimestamp === null || timeVal > entry.latestUploadTimestamp) {
-          entry.latestUploadTimestamp = timeVal;
+        if (uploaderEntry.latestUploadTimestamp === null || timeVal > uploaderEntry.latestUploadTimestamp) {
+          uploaderEntry.latestUploadTimestamp = timeVal;
+        }
+      }
+
+      // 2. Attribute to Target (Companion connection exists mutually)
+      if (targetNorm && targetNorm !== uploaderNorm && studentMap.has(targetNorm)) {
+        const targetEntry = studentMap.get(targetNorm)!;
+        targetEntry.uniqueTargets.add(uploaderNorm);
+        targetEntry.count = targetEntry.uniqueTargets.size;
+
+        if (targetEntry.firstUploadTimestamp === null || timeVal < targetEntry.firstUploadTimestamp) {
+          targetEntry.firstUploadTimestamp = timeVal;
+        }
+        if (targetEntry.latestUploadTimestamp === null || timeVal > targetEntry.latestUploadTimestamp) {
+          targetEntry.latestUploadTimestamp = timeVal;
         }
       }
     });
@@ -182,21 +205,21 @@ export function LeaderboardPage({
     });
 
     // Sorting:
-    // 1. count DESC (progres teman terbanyak yang diupload)
-    // 2. totalUploads DESC (total foto diunggah)
-    // 3. latestUploadTimestamp ASC (siapa yang menyelesaikan lebih awal pada hari/periode tersebut)
+    // 1. count DESC (progres jumlah teman terfoto menuju 100%)
+    // 2. latestUploadTimestamp ASC (waktu tercepat saat mencapai progress tersebut)
+    // 3. totalUploads DESC (jumlah upload langsung terbanyak)
     // 4. nama ASC
     list.sort((a, b) => {
       if (b.count !== a.count) {
         return b.count - a.count;
       }
-      if (b.totalUploads !== a.totalUploads) {
-        return b.totalUploads - a.totalUploads;
-      }
       if (a.count > 0 && b.count > 0) {
-        if (a.latestUploadTimestamp && b.latestUploadTimestamp) {
+        if (a.latestUploadTimestamp && b.latestUploadTimestamp && a.latestUploadTimestamp !== b.latestUploadTimestamp) {
           return a.latestUploadTimestamp - b.latestUploadTimestamp;
         }
+      }
+      if (b.totalUploads !== a.totalUploads) {
+        return b.totalUploads - a.totalUploads;
       }
       return a.student.namaLengkap.localeCompare(b.student.namaLengkap);
     });
@@ -368,7 +391,7 @@ export function LeaderboardPage({
         </div>
       </div>
 
-      {/* Collapsible Panel: Ketentuan Capaian Papan Peringkat (Minimalist & Clean) */}
+      {/* Collapsible Panel: Ketentuan Capaian Papan Peringkat (Minimalist & Intuitive) */}
       <AnimatePresence>
         {isRulesOpen && (
           <motion.div
@@ -385,7 +408,7 @@ export function LeaderboardPage({
                   <span>Aturan &amp; Ketentuan Penghitungan Skor</span>
                 </h4>
                 <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                  Sistem Validasi Uploader
+                  Sinkronisasi Foto Bersama
                 </span>
               </div>
 
@@ -393,20 +416,20 @@ export function LeaderboardPage({
                 <div className="p-3 bg-white rounded-2xl border border-slate-200/80 space-y-1 shadow-2xs">
                   <p className="font-bold text-slate-900 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span>Dihitung dari Unggahan Anda Sendiri</span>
+                    <span>Progres Foto Bersama Teman</span>
                   </p>
                   <p className="text-[11px] text-slate-600 leading-relaxed pl-5">
-                    Hanya foto yang diunggah langsung oleh akun Anda (sebagai uploader dengan NIM Anda) yang dihitung sebagai capaian progres.
+                    Progres dihitung dari seluruh teman unik yang berhasil difoto bersama, baik yang Anda unggah sendiri maupun yang diunggah oleh teman Anda.
                   </p>
                 </div>
 
                 <div className="p-3 bg-white rounded-2xl border border-slate-200/80 space-y-1 shadow-2xs">
                   <p className="font-bold text-slate-900 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span>Objek Foto Tidak Menambah Poin Anda</span>
+                    <span>Otomatis Terhubung &amp; Tanpa Unggah Ulang</span>
                   </p>
                   <p className="text-[11px] text-slate-600 leading-relaxed pl-5">
-                    Jika Anda difoto oleh teman lain, foto tersebut menjadi capaian uploader yang mengunggah, bukan untuk akun Anda.
+                    Jika teman sudah mengunggah foto bersama Anda, data otomatis tercatat sebagai capaian bersama dan waktu tercepat ikut terhitung.
                   </p>
                 </div>
 
@@ -416,7 +439,7 @@ export function LeaderboardPage({
                     <span>Prioritas Urutan &amp; Waktu Tercepat</span>
                   </p>
                   <p className="text-[11px] text-slate-600 leading-relaxed pl-5">
-                    Peringkat diurutkan dari progres teman unik terbanyak, total foto diunggah, dan jam upload terakhir paling cepat (WITA).
+                    Peringkat diurutkan dari progres teman unik terbanyak, waktu penyelesaian paling cepat (WITA), dan jumlah unggahan langsung.
                   </p>
                 </div>
 
@@ -435,7 +458,7 @@ export function LeaderboardPage({
         )}
       </AnimatePresence>
 
-      {/* Period Filter Tabs & Date Picker ("Filter Hari" placed immediately BEFORE the Date Picker) */}
+      {/* Period Filter Tabs & Date Picker ("Filter Hari" placed immediately BEFORE Date Picker) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/90 rounded-2xl p-2.5 sm:p-3 shadow-2xs">
         {/* Period Buttons */}
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
@@ -552,7 +575,7 @@ export function LeaderboardPage({
               <span>Podium Juara</span>
             </h2>
             <p className="text-[11px] sm:text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              Dihitung berdasarkan jumlah foto yang diunggah langsung oleh mahasiswa (Uploader) dan waktu unggah tercepat
+              Dihitung berdasarkan jumlah teman unik yang berhasil difoto bersama dan waktu penyelesaian tercepat
             </p>
           </div>
 
@@ -751,14 +774,14 @@ export function LeaderboardPage({
             </div>
           )}
 
-          {/* Minimalist Info Card */}
+          {/* Minimalist Info Card with Requested Text */}
           <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 sm:p-4 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="space-y-0.5">
               <p className="font-bold text-slate-900">
                 Ketentuan Pemenang Utama (100% Selesai)
               </p>
               <p className="text-[11px] text-slate-600">
-                Peringkat 1, 2, dan 3 dikunci permanen berdasarkan urutan peserta yang pertama kali menyelesaikan {totalTarget} foto (100%).
+                Peringkat 1, 2, dan 3 dikunci permanen berdasarkan urutan peserta yang pertama kali menyelesaikan {totalTarget} foto (100%)
               </p>
             </div>
             <div className="text-[11px] font-bold text-slate-600 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shrink-0 self-start sm:self-auto shadow-2xs">
@@ -817,7 +840,7 @@ export function LeaderboardPage({
             <span>Daftar Peringkat ({filteredData.length} Mahasiswa)</span>
           </h3>
           <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-            Urutan: Uploader Terbanyak &amp; Jam Tercepat
+            Urutan: Progres Terbanyak &amp; Waktu Tercepat
           </span>
         </div>
 
@@ -895,7 +918,7 @@ export function LeaderboardPage({
                   <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-5 pl-11 sm:pl-0">
                     {/* Time of latest upload */}
                     <div className="text-left sm:text-right shrink-0">
-                      <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase">Upload Terakhir</p>
+                      <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase">Foto Terakhir</p>
                       <p className="text-[11px] sm:text-xs font-semibold text-slate-700 flex items-center gap-1">
                         <Clock className="w-3 h-3 text-slate-400 shrink-0" />
                         <span>{formatTime(item.latestUploadTimestamp)}</span>
