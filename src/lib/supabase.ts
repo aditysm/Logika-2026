@@ -82,6 +82,18 @@ export function getSupabaseClient(customConfig?: SupabaseConfig): SupabaseClient
   try {
     cachedClient = createClient(config.url, config.anonKey, {
       auth: { persistSession: false },
+      global: {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+        fetch: (input, init) => {
+          return fetch(input, {
+            ...init,
+            cache: 'no-store',
+          });
+        },
+      },
     });
     cachedConfigKey = currentKey;
     return cachedClient;

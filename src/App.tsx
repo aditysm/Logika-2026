@@ -50,6 +50,7 @@ import {
   applyProfileOverrides,
   saveProfileOverride,
   clearProfileOverrides,
+  clearAllPhotoCache,
 } from './lib/photoStorage';
 import {
   CheckCircle2,
@@ -226,18 +227,21 @@ export default function App() {
     }
   }, [location.pathname]);
 
+  const studentsRef = useRef<Mahasiswa[]>([]);
+
   const loadData = useCallback(async (options: { force?: boolean; silent?: boolean } = {}) => {
     const { force = false, silent = false } = options;
     if (!silent) setIsLoading(true);
     try {
       if (force) {
         clearProfileOverrides();
-        setMemoryPhotoRecords([]);
+        await clearAllPhotoCache();
       }
 
       const activeConfig = getActiveSupabaseConfig();
       const result = await fetchStudentsFromSupabase(activeConfig);
       const enhancedStudents = applyProfileOverrides(result.data);
+      studentsRef.current = enhancedStudents;
 
       setStudents(enhancedStudents);
 
@@ -249,8 +253,8 @@ export default function App() {
         totalLoaded: enhancedStudents.length,
       });
 
-      // Merge local storage records with remote photo_logs from Supabase
-      const localRecords = await loadPhotoRecordsFromStorage();
+      // Fetch fresh remote photo_logs from Supabase
+      const localRecords = force ? [] : await loadPhotoRecordsFromStorage();
       const remoteLogs = await fetchPhotoLogsFromSupabase(activeConfig, enhancedStudents);
       const combined = mergePhotoRecords(localRecords || [], remoteLogs || []);
 
@@ -260,12 +264,16 @@ export default function App() {
       
       // Increment refreshKey to trigger re-fetches in child components
       setRefreshKey((prev) => prev + 1);
+
+      if (force && !silent) {
+        showToast('Data berhasil diperbarui langsung dari database.', 'success', 3000, 'Data Terkini');
+      }
     } catch (err) {
       console.error('Error fetching students:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   // Validate session when student list is loaded
   useEffect(() => {
@@ -292,7 +300,7 @@ export default function App() {
       },
       () => {
         // Photo logs changed remotely
-        fetchPhotoLogsFromSupabase(undefined, students).then((logs) => {
+        fetchPhotoLogsFromSupabase(undefined, studentsRef.current).then((logs) => {
           if (logs !== null) {
             setPhotoRecords((current) => {
               const merged = mergePhotoRecords(current, logs);

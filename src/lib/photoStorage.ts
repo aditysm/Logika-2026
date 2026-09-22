@@ -161,6 +161,27 @@ export function clearProfileOverrides(): void {
   }
 }
 
+export async function clearAllPhotoCache(): Promise<void> {
+  memoryPhotoCache = [];
+  try {
+    localStorage.removeItem(PHOTO_STORAGE_KEY);
+  } catch (err) {
+    console.warn('Failed to clear photo storage key in localStorage', err);
+  }
+  try {
+    const db = await openPhotoDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    await new Promise<void>((resolve) => {
+      const req = store.clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    });
+  } catch (err) {
+    console.warn('Failed to clear photo store in IndexedDB', err);
+  }
+}
+
 export function applyProfileOverrides(students: Mahasiswa[]): Mahasiswa[] {
   const overrides = getProfileOverrides();
   if (Object.keys(overrides).length === 0) return students;
