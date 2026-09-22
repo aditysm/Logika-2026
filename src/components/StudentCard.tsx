@@ -1,5 +1,4 @@
 import { Camera, CheckCircle2, ChevronRight, Crown, Heart, Mail, MapPin, Sparkles, User } from 'lucide-react';
-import { motion } from 'motion/react';
 import { Mahasiswa } from '../types';
 import { formatWhatsAppUrl, formatPhoneDisplay } from '../lib/supabase';
 import { WhatsAppIcon } from './WhatsAppIcon';
@@ -56,11 +55,7 @@ export function StudentCard({
     .toUpperCase();
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-20px' }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+    <div
       id={`student-card-${student.id}`}
       onClick={() => onSelect(student)}
       onKeyDown={(e) => {
@@ -71,7 +66,7 @@ export function StudentCard({
       }}
       tabIndex={0}
       role="button"
-      className="group relative bg-white border border-slate-200 hover:border-blue-400 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="group relative bg-white border border-slate-200 hover:border-blue-400 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-150 cursor-pointer flex flex-col justify-between text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
     >
       {/* Top section: Kelompok badge on left & Status/Upload button on right */}
       <div>
@@ -195,6 +190,6 @@ export function StudentCard({
           <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

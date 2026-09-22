@@ -1,5 +1,4 @@
 
-import { motion } from 'motion/react';
 import { SearchBar } from './SearchBar';
 import { StudentCard } from './StudentCard';
 import { UserProgressBanner } from './UserProgressBanner';
@@ -68,12 +67,8 @@ export function MainListView({
   hasTakenPhoto,
 }: MainListViewProps) {
   return (
-    <motion.div
+    <div
       key="search-list"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
       className="space-y-6 sm:space-y-8"
     >
       {/* User Progress Dashboard (Know Each Other) - Shown if logged in */}
@@ -343,6 +338,6 @@ export function MainListView({
           </div>
         )}
       </section>
-    </motion.div>
+    </div>
   );
 }

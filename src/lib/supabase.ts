@@ -339,13 +339,67 @@ export async function fetchPhotoLogsFromSupabase(
 
     const tablesToTry = [DEFAULT_PHOTO_LOGS_TABLE, 'photo_logs', 'photo_log', 'photologs'];
     for (const tableName of tablesToTry) {
-      const res = await supabase.from(tableName).select('*');
+      const allRows: Record<string, unknown>[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      let tableMatched = false;
 
-      if (!res.error && res.data) {
-        data = res.data as Record<string, unknown>[];
+      while (hasMore) {
+        let query = supabase.from(tableName).select('*');
+        try {
+          query = query.order('id', { ascending: true });
+        } catch {
+          // Ignore if order by id not supported
+        }
+
+        const res = await query.range(from, from + batchSize - 1);
+
+        if (res.error) {
+          if (from === 0) {
+            // Fallback without ordering in case id column does not exist
+            const fallbackRes = await supabase
+              .from(tableName)
+              .select('*')
+              .range(from, from + batchSize - 1);
+
+            if (fallbackRes.error) {
+              fetchError = fallbackRes.error;
+              break;
+            }
+            if (fallbackRes.data && fallbackRes.data.length > 0) {
+              tableMatched = true;
+              allRows.push(...(fallbackRes.data as Record<string, unknown>[]));
+              if (fallbackRes.data.length < batchSize) {
+                hasMore = false;
+              } else {
+                from += batchSize;
+              }
+              continue;
+            } else {
+              hasMore = false;
+              break;
+            }
+          }
+          break;
+        }
+
+        if (res.data && res.data.length > 0) {
+          tableMatched = true;
+          allRows.push(...(res.data as Record<string, unknown>[]));
+          if (res.data.length < batchSize) {
+            hasMore = false;
+          } else {
+            from += batchSize;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (tableMatched && allRows.length > 0) {
+        data = allRows;
         break;
-      } else if (res.error) {
-        fetchError = res.error;
       }
     }
 

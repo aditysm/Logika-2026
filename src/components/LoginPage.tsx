@@ -147,9 +147,9 @@ export function LoginPage({
         </AnimatePresence>
 
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15 }}
           className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-xs"
         >
           {/* If redirected from Upload Photo button */}
