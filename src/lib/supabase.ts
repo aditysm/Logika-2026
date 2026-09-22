@@ -12,9 +12,9 @@ import { getIntuitiveErrorMessage } from './errorHandler';
  * - VITE_SUPABASE_ANON_KEY
  * - VITE_SUPABASE_TABLE (default: 'profiles')
  */
-export const SUPABASE_URL_IN_CODE = 'https://fwhapumjpfbqirmqqwrm.supabase.co';
+export const SUPABASE_URL_IN_CODE = 'https://cvjjdsxguzuhnnnxneec.supabase.co';
 export const SUPABASE_ANON_KEY_IN_CODE =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3aGFwdW1qcGZicWlybXFxd3JtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxODg4MDEsImV4cCI6MjEwNDc2NDgwMX0.kHNsSdg2d_P4iQOpdut7MXXGtDrjwN8DrCjH5E5WJlw';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ampkc3hndXp1aG5ubnhuZWVjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA0NTk5OSwiZXhwIjoyMTA1NjIxOTk5fQ.YeQIhtxltPSuD--tDsMViyvRoZVErAlRgA58MkrWdsY';
 
 export const DEFAULT_PROFILES_TABLE = 'profiles';
 export const DEFAULT_GROUPS_TABLE = 'groups';
@@ -384,8 +384,8 @@ export async function fetchPhotoLogsFromSupabase(
           break;
         }
 
+        tableMatched = true;
         if (res.data && res.data.length > 0) {
-          tableMatched = true;
           allRows.push(...(res.data as Record<string, unknown>[]));
           if (res.data.length < batchSize) {
             hasMore = false;
@@ -397,13 +397,13 @@ export async function fetchPhotoLogsFromSupabase(
         }
       }
 
-      if (tableMatched && allRows.length > 0) {
+      if (tableMatched) {
         data = allRows;
         break;
       }
     }
 
-    if (!data) {
+    if (data === null) {
       if (fetchError) {
         console.warn('Failed to fetch photo_logs from Supabase:', fetchError.message);
       }

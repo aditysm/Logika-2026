@@ -1,12 +1,49 @@
 import { Mahasiswa, PhotoRecord } from '../types';
 
-const PHOTO_STORAGE_KEY = 'logika_2026_photo_records';
-const USER_SESSION_KEY = 'logika_2026_current_user_nim';
-const PROFILE_OVERRIDES_KEY = 'logika_2026_profile_overrides';
+export const ACTIVE_PROJECT_REF = 'cvjjdsxguzuhnnnxneec';
+const PHOTO_STORAGE_KEY = `logika_2026_photo_records_${ACTIVE_PROJECT_REF}`;
+const USER_SESSION_KEY = `logika_2026_current_user_nim_${ACTIVE_PROJECT_REF}`;
+const PROFILE_OVERRIDES_KEY = `logika_2026_profile_overrides_${ACTIVE_PROJECT_REF}`;
 
-const DB_NAME = 'Logika2026PhotoDB';
+const DB_NAME = `Logika2026PhotoDB_${ACTIVE_PROJECT_REF}`;
 const DB_VERSION = 1;
 const STORE_NAME = 'photo_records';
+
+// Purge any stale legacy data or cache from previous Supabase projects
+if (typeof window !== 'undefined') {
+  try {
+    const markerKey = 'logika_active_project_id';
+    const lastActive = localStorage.getItem(markerKey);
+    if (lastActive !== ACTIVE_PROJECT_REF) {
+      const keysToPurge = [
+        'logika_2026_photo_records',
+        'logika_2026_profile_overrides',
+        'logika_2026_current_user_nim',
+        'photo_storage',
+      ];
+      keysToPurge.forEach((k) => {
+        try { localStorage.removeItem(k); } catch {}
+      });
+
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.includes('fwhapumjpfbqirmqqwrm') || (k.startsWith('logika_2026_photo_records_') && !k.endsWith(ACTIVE_PROJECT_REF)))) {
+          try { localStorage.removeItem(k); } catch {}
+        }
+      }
+
+      try {
+        if (window.indexedDB && window.indexedDB.deleteDatabase) {
+          window.indexedDB.deleteDatabase('Logika2026PhotoDB');
+        }
+      } catch {}
+
+      localStorage.setItem(markerKey, ACTIVE_PROJECT_REF);
+    }
+  } catch (err) {
+    console.warn('Cache purge notice:', err);
+  }
+}
 
 let memoryPhotoCache: PhotoRecord[] | null = null;
 

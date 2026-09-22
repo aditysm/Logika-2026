@@ -4,15 +4,14 @@ import { SUPABASE_ANON_KEY_IN_CODE, getSupabaseClient } from './supabase';
 
 /**
  * API Client for interacting with the Supabase Edge Function
- * Endpoint: https://fwhapumjpfbqirmqqwrm.supabase.co/functions/v1/logika
+ * Endpoint: https://cvjjdsxguzuhnnnxneec.supabase.co/functions/v1/logika
  */
 
 export const SUPABASE_EDGE_FUNCTION_URL =
-  'https://fwhapumjpfbqirmqqwrm.supabase.co/functions/v1/logika';
+  'https://cvjjdsxguzuhnnnxneec.supabase.co/functions/v1/logika';
 
 export const EDGE_FUNCTION_CANDIDATE_URLS = [
-  'https://fwhapumjpfbqirmqqwrm.supabase.co/functions/v1/logika',
-  'https://fwhapumjpfbqirmqqwrm.supabase.co/functions/v1/main',
+  'https://cvjjdsxguzuhnnnxneec.supabase.co/functions/v1/logika',
 ];
 
 export const DEFAULT_DRIVE_FOLDER_ID = '1MuAMDF9gyKuOjGwBiT8vWvVuyfFAELSd';

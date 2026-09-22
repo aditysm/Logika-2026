@@ -254,13 +254,19 @@ export default function App() {
       });
 
       // Fetch fresh remote photo_logs from Supabase
-      const localRecords = force ? [] : await loadPhotoRecordsFromStorage();
       const remoteLogs = await fetchPhotoLogsFromSupabase(activeConfig, enhancedStudents);
-      const combined = mergePhotoRecords(localRecords || [], remoteLogs || []);
+      let finalRecords: PhotoRecord[];
+      if (remoteLogs !== null) {
+        // Remote database is accessible and is the authoritative source
+        finalRecords = remoteLogs;
+      } else {
+        // Only if database is unreachable, fall back to offline local storage
+        finalRecords = await loadPhotoRecordsFromStorage();
+      }
 
-      setPhotoRecords(combined);
-      setMemoryPhotoRecords(combined);
-      syncToLocalStorage(combined);
+      setPhotoRecords(finalRecords);
+      setMemoryPhotoRecords(finalRecords);
+      syncToLocalStorage(finalRecords);
       
       // Increment refreshKey to trigger re-fetches in child components
       setRefreshKey((prev) => prev + 1);
@@ -277,12 +283,17 @@ export default function App() {
 
   // Validate session when student list is loaded
   useEffect(() => {
-    if (!isLoading && students.length > 0 && currentUserNim) {
-      const found = findStudentInList(students, currentUserNim);
-      if (!found) {
-        // If stored NIM does not exist in loaded student list, clear invalid session
+    if (!isLoading && currentUserNim) {
+      if (students.length === 0) {
         setCurrentUserNim(null);
         setCurrentUserNimState(null);
+      } else {
+        const found = findStudentInList(students, currentUserNim);
+        if (!found) {
+          // If stored NIM does not exist in loaded student list, clear invalid session
+          setCurrentUserNim(null);
+          setCurrentUserNimState(null);
+        }
       }
     }
   }, [isLoading, students, currentUserNim]);
