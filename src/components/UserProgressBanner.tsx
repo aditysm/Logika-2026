@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   CheckCircle2,
   ExternalLink,
@@ -12,7 +13,7 @@ import {
   FolderCheck,
 } from 'lucide-react';
 import { Mahasiswa, PhotoRecord } from '../types';
-import { normalizeNim, hasTakenPhoto } from '../lib/photoStorage';
+import { normalizeNim, getTakenNimSet } from '../lib/photoStorage';
 
 interface UserProgressBannerProps {
   currentUser: Mahasiswa;
@@ -34,19 +35,21 @@ export function UserProgressBanner({
   onGenerateReport,
 }: UserProgressBannerProps) {
   const currentTier = currentUser.tier || 'free';
-  // Filter out current user from target friends count
-  const friends = students.filter(
-    (s) => currentUser && normalizeNim(s.nim) !== normalizeNim(currentUser.nim)
-  );
 
-  const totalFriends = friends.length;
-
-  // Count photos taken between current user and friend (mutual)
-  const takenCount = friends.filter((friend) =>
-    currentUser ? hasTakenPhoto(photoRecords, currentUser.nim, friend.nim) : false
-  ).length;
-
-  const percentage = totalFriends > 0 ? Math.round((takenCount / totalFriends) * 100) : 0;
+  const { totalFriends, takenCount, percentage } = useMemo(() => {
+    const userNim = normalizeNim(currentUser.nim);
+    const friends = students.filter((s) => normalizeNim(s.nim) !== userNim);
+    const countFriends = friends.length;
+    const takenSet = getTakenNimSet(photoRecords, currentUser.nim);
+    let count = 0;
+    for (const f of friends) {
+      if (takenSet.has(normalizeNim(f.nim))) {
+        count++;
+      }
+    }
+    const pct = countFriends > 0 ? Math.round((count / countFriends) * 100) : 0;
+    return { totalFriends: countFriends, takenCount: count, percentage: pct };
+  }, [currentUser.nim, students, photoRecords]);
 
   return (
     <div className="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-xs mb-6 sm:mb-8 relative overflow-hidden">
@@ -147,41 +150,57 @@ export function UserProgressBanner({
           </div>
         </div>
 
-        {/* Right: Quick Filter Status Buttons */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs">
-          <button
-            type="button"
-            onClick={() => onFilterPhotoStatusChange('ALL')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-              filterPhotoStatus === 'ALL'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Semua ({totalFriends})
-          </button>
-          <button
-            type="button"
-            onClick={() => onFilterPhotoStatusChange('BELUM')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-              filterPhotoStatus === 'BELUM'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-blue-600'
-            }`}
-          >
-            Belum ({Math.max(0, totalFriends - takenCount)})
-          </button>
-          <button
-            type="button"
-            onClick={() => onFilterPhotoStatusChange('SUDAH')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-              filterPhotoStatus === 'SUDAH'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-emerald-600'
-            }`}
-          >
-            Sudah ({takenCount})
-          </button>
+        {/* Right: Quick Filter Status Buttons & Special Action */}
+        <div className="flex flex-wrap items-center gap-2">
+          {normalizeNim(currentUser.nim) === 'F1D02610029' && onGenerateReport && (
+            <button
+              id="btnBannerGenerateWord"
+              type="button"
+              onClick={onGenerateReport}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-sm transition-all cursor-pointer"
+              title="Akses Khusus F1D02610029: Buat berkas Word (.docx) & eksekusi ke Supabase"
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              <span>Buat Word (.docx)</span>
+              <Sparkles className="w-3 h-3 text-blue-200" />
+            </button>
+          )}
+
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs">
+            <button
+              type="button"
+              onClick={() => onFilterPhotoStatusChange('ALL')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                filterPhotoStatus === 'ALL'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Semua ({totalFriends})
+            </button>
+            <button
+              type="button"
+              onClick={() => onFilterPhotoStatusChange('BELUM')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                filterPhotoStatus === 'BELUM'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-blue-600'
+              }`}
+            >
+              Belum ({Math.max(0, totalFriends - takenCount)})
+            </button>
+            <button
+              type="button"
+              onClick={() => onFilterPhotoStatusChange('SUDAH')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                filterPhotoStatus === 'SUDAH'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-emerald-600'
+              }`}
+            >
+              Sudah ({takenCount})
+            </button>
+          </div>
         </div>
       </div>
     </div>

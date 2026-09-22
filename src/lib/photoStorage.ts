@@ -450,6 +450,28 @@ export function hasTakenPhoto(
   return records.some((r) => matchPairRecord(r, nim1, nim2));
 }
 
+export function getTakenNimSet(records: PhotoRecord[], userNim?: string): Set<string> {
+  const set = new Set<string>();
+  if (!Array.isArray(records) || !userNim) return set;
+  const target = normalizeNim(userNim);
+  for (const r of records) {
+    const up = normalizeNim(r.uploaderNim);
+    const tg = normalizeNim(r.targetNim);
+    if (up === target && tg) {
+      set.add(tg);
+    } else if (tg === target && up) {
+      set.add(up);
+    } else if (r.pairKey) {
+      const parts = r.pairKey.split(/[_|:-]/).map(normalizeNim).filter(Boolean);
+      if (parts.length >= 2) {
+        if (parts[0] === target && parts[1]) set.add(parts[1]);
+        if (parts[1] === target && parts[0]) set.add(parts[0]);
+      }
+    }
+  }
+  return set;
+}
+
 export function getPhotoWithTarget(
   records: PhotoRecord[],
   nim1?: string,

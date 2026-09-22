@@ -11,6 +11,7 @@ export interface Mahasiswa {
   noWa: string;
   kelompok: string;
   driveFolderUrl?: string;
+  driveFolderId?: string;
   tier?: 'free' | 'basic' | 'pro';
   isLeader?: boolean;
   raw?: Record<string, unknown>;

@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, useMemo, FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, KeyRound, Loader2, LogIn, Search, ShieldAlert, ShieldCheck, Sparkles, UserCheck, X } from 'lucide-react';
@@ -36,6 +36,7 @@ export function LoginPage({
   const [nimInput, setNimInput] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [toastError, setToastError] = useState<string | null>(null);
+  const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const [pendingConfirmStudent, setPendingConfirmStudent] = useState<Mahasiswa | null>(null);
   const [showQuickSelect, setShowQuickSelect] = useState(false);
   const [quickFilter, setQuickFilter] = useState('');
@@ -84,7 +85,7 @@ export function LoginPage({
   };
 
   const handleConfirmLogin = () => {
-    if (!pendingConfirmStudent) return;
+    if (!pendingConfirmStudent || isConfirming) return;
 
     if (isProtectedNim(pendingConfirmStudent.nim)) {
       if (passkeyInput.trim() !== REQUIRED_PASSKEY) {
@@ -95,30 +96,30 @@ export function LoginPage({
       }
     }
 
+    setIsConfirming(true);
     onLogin(pendingConfirmStudent.nim);
-    setPendingConfirmStudent(null);
-    setPasskeyInput('');
-    setPasskeyError(null);
   };
 
   const handleCancelConfirm = () => {
+    if (isConfirming) return;
     setPendingConfirmStudent(null);
     setPasskeyInput('');
     setPasskeyError(null);
     showToastError('Konfirmasi dibatalkan. Silakan periksa kembali NIM Anda.');
   };
 
-  const filteredQuickList = quickFilter.trim()
-    ? students.filter((s) => {
-        const q = quickFilter.toLowerCase();
-        return (
-          s.namaLengkap.toLowerCase().includes(q) ||
-          (s.namaPanggilan && s.namaPanggilan.toLowerCase().includes(q)) ||
-          s.nim.toLowerCase().includes(q) ||
-          s.kelompok.toLowerCase().includes(q)
-        );
-      })
-    : students;
+  const filteredQuickList = useMemo(() => {
+    const q = quickFilter.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter((s) => {
+      return (
+        s.namaLengkap.toLowerCase().includes(q) ||
+        (s.namaPanggilan && s.namaPanggilan.toLowerCase().includes(q)) ||
+        s.nim.toLowerCase().includes(q) ||
+        s.kelompok.toLowerCase().includes(q)
+      );
+    });
+  }, [students, quickFilter]);
 
   return (
     <div className="flex-1 flex flex-col justify-center">
@@ -468,18 +469,30 @@ export function LoginPage({
               <div className="pt-2 flex flex-col-reverse sm:flex-row items-center gap-2.5">
                 <button
                   type="button"
+                  disabled={isConfirming}
                   onClick={handleCancelConfirm}
-                  className="w-full sm:w-1/2 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  className="w-full sm:w-1/2 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Bukan, Ini Bukan Saya
                 </button>
                 <button
+                  id="btn-confirm-identity-yes"
                   type="button"
+                  disabled={isConfirming}
                   onClick={handleConfirmLogin}
-                  className="w-full sm:w-1/2 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-xs cursor-pointer"
+                  className="w-full sm:w-1/2 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-xs cursor-pointer disabled:opacity-70"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Ya, Ini Data Saya</span>
+                  {isConfirming ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Memproses...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Ya, Ini Data Saya</span>
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>

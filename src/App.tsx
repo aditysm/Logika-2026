@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Routes, Route, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
@@ -23,6 +23,7 @@ import { AdminModePage } from './components/AdminModePage';
 import { MainListView } from './components/MainListView';
 import { TierWarningBanner } from './components/TierWarningBanner';
 import { generateStudentReport } from './lib/reportGenerator';
+import { requestGenerateReport } from './lib/api';
 import { ConnectionStatus, Mahasiswa, PhotoRecord } from './types';
 import {
   fetchStudentsFromSupabase,
@@ -42,6 +43,7 @@ import {
   syncToLocalStorage,
   mergePhotoRecords,
   hasTakenPhoto,
+  getTakenNimSet,
   getPhotoWithTarget,
   getCurrentUserNim,
   setCurrentUserNim,
@@ -170,7 +172,7 @@ export default function App() {
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>(searchQuery);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   // Layar lebar (desktop / >= 1024px) menampilkan 12 data, layar kecil menampilkan 10 data
   const [isLargeScreen, setIsLargeScreen] = useState<boolean>(() => {
@@ -204,13 +206,6 @@ export default function App() {
   }, []);
 
   const itemsPerPage = isLargeScreen ? 12 : 10;
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   const [refreshKey, setRefreshKey] = useState<number>(0);
 
@@ -382,7 +377,6 @@ export default function App() {
   const handleGoHomeLogo = () => {
     searchScrollPosRef.current = 0;
     setSearchQuery('');
-    setDebouncedSearchQuery('');
     setSelectedGroup('ALL');
     setFilterPhotoStatus('ALL');
     setSortBy('nama');
@@ -647,16 +641,24 @@ export default function App() {
   const handleGenerateReport = async () => {
     if (!currentUser) return;
     try {
-      showToast('Sedang menyiapkan dokumen laporan biodata (.docx)...', 'info', 4000);
+      showToast('Menyiapkan dokumen Word (.docx) & mengeksekusi antrean ke Supabase...', 'info', 4000);
+      
+      // Execute to Supabase report_requests queue
+      requestGenerateReport(
+        currentUser.nim,
+        currentUser.namaLengkap,
+        currentUser.driveFolderId
+      ).catch((e) => console.warn('Supabase report background request error:', e));
+
       const targetFriends = students.filter(
         (s) => currentUser && normalizeNim(s.nim) !== normalizeNim(currentUser.nim)
       );
       await generateStudentReport(currentUser, targetFriends, photoRecords);
-      showToast('Laporan (.docx) berhasil dibuat dan diunduh!', 'success', 4000, 'Berhasil Diunduh');
+      showToast('Dokumen Word (.docx) berhasil dibuat & dieksekusi ke Supabase!', 'success', 5000, 'Berhasil Dibuat');
     } catch (err: unknown) {
       console.error('Error generating report:', err);
-      const msg = getIntuitiveErrorMessage(err, 'Gagal mengunduh berkas laporan.');
-      showToast(msg, 'error', 6000, 'Gagal Mengunduh Laporan');
+      const msg = getIntuitiveErrorMessage(err, 'Gagal membuat berkas dokumen laporan.');
+      showToast(msg, 'error', 6000, 'Gagal Membuat Laporan');
     }
   };
 
@@ -684,57 +686,70 @@ export default function App() {
     return students;
   }, [students]);
 
-  // Filter & Search
+  // Fast O(1) set of target NIMs the current user has taken photos with
+  const currentUserTakenSet = useMemo(() => {
+    return getTakenNimSet(photoRecords, currentUser?.nim);
+  }, [photoRecords, currentUser?.nim]);
+
+  // Fast O(1) photo status checker function
+  const fastHasTakenPhoto = useCallback(
+    (_records: PhotoRecord[], _uploaderNim: string, targetNim: string) => {
+      if (!currentUser) return false;
+      return currentUserTakenSet.has(normalizeNim(targetNim));
+    },
+    [currentUser, currentUserTakenSet]
+  );
+
+  // Pre-indexed searchable metadata for instant, blazing-fast search
+  const searchableStudents = useMemo(() => {
+    return directoryStudents.map((s) => ({
+      student: s,
+      normNim: normalizeNim(s.nim),
+      searchKey: `${s.namaLengkap} ${s.namaPanggilan || ''} ${s.nim} ${s.kelompok || ''} ${s.asalRumah || ''} ${s.alamatRumahDomisili || ''} ${s.hobi || ''}`.toLowerCase(),
+    }));
+  }, [directoryStudents]);
+
+  // Filter & Search: Instant response on every keystroke
   const filteredStudents = useMemo(() => {
-    const q = debouncedSearchQuery.toLowerCase().trim();
+    const q = deferredSearchQuery.toLowerCase().trim();
+    const currNim = currentUser ? normalizeNim(currentUser.nim) : null;
 
-    return directoryStudents.filter((student) => {
-      // Group filter
-      if (selectedGroup !== 'ALL' && student.kelompok !== selectedGroup) {
-        return false;
-      }
-
-      // Photo status filter
-      if (filterPhotoStatus !== 'ALL' && currentUser) {
-        const isSelf = normalizeNim(student.nim) === normalizeNim(currentUser.nim);
-        const isTaken = hasTakenPhoto(photoRecords, currentUser.nim, student.nim);
-
-        if (filterPhotoStatus === 'BELUM') {
-          if (isSelf || isTaken) return false;
-        } else if (filterPhotoStatus === 'SUDAH') {
-          if (!isTaken) return false;
+    return searchableStudents
+      .filter(({ student, normNim, searchKey }) => {
+        // Group filter
+        if (selectedGroup !== 'ALL' && student.kelompok !== selectedGroup) {
+          return false;
         }
-      }
 
-      // Search query filter
-      if (!q) return true;
+        // Photo status filter
+        if (filterPhotoStatus !== 'ALL' && currNim) {
+          const isSelf = normNim === currNim;
+          const isTaken = currentUserTakenSet.has(normNim);
 
-      const namaLengkap = (student.namaLengkap || '').toLowerCase();
-      const namaPanggilan = (student.namaPanggilan || '').toLowerCase();
-      const nim = (student.nim || '').toLowerCase();
-      const kelompok = (student.kelompok || '').toLowerCase();
-      const asalDaerah = (student.asalDaerah || '').toLowerCase();
-      const hobi = (student.hobi || '').toLowerCase();
+          if (filterPhotoStatus === 'BELUM') {
+            if (isSelf || isTaken) return false;
+          } else if (filterPhotoStatus === 'SUDAH') {
+            if (!isTaken) return false;
+          }
+        }
 
-      return (
-        namaLengkap.includes(q) ||
-        namaPanggilan.includes(q) ||
-        nim.includes(q) ||
-        kelompok.includes(q) ||
-        asalDaerah.includes(q) ||
-        hobi.includes(q)
-      );
-    });
-  }, [directoryStudents, debouncedSearchQuery, selectedGroup, filterPhotoStatus, currentUser, photoRecords]);
+        // Search query filter
+        if (!q) return true;
+        return searchKey.includes(q);
+      })
+      .map((item) => item.student);
+  }, [searchableStudents, deferredSearchQuery, selectedGroup, filterPhotoStatus, currentUser, currentUserTakenSet]);
 
   // Sorting: Place completed photo students at the bottom, then sort by selected criterion
   const sortedStudents = useMemo(() => {
+    const currNim = currentUser ? normalizeNim(currentUser.nim) : null;
+
     return [...filteredStudents].sort((a, b) => {
       // 1. Completed photo status check:
       // Students who have already taken a photo ("SUDAH") are placed at the very bottom
-      if (currentUser) {
-        const aTaken = hasTakenPhoto(photoRecords, currentUser.nim, a.nim);
-        const bTaken = hasTakenPhoto(photoRecords, currentUser.nim, b.nim);
+      if (currNim) {
+        const aTaken = currentUserTakenSet.has(normalizeNim(a.nim));
+        const bTaken = currentUserTakenSet.has(normalizeNim(b.nim));
 
         if (aTaken !== bTaken) {
           return aTaken ? 1 : -1;
@@ -777,7 +792,7 @@ export default function App() {
 
       return 0;
     });
-  }, [filteredStudents, sortBy, selectedGroup, currentUser, photoRecords]);
+  }, [filteredStudents, sortBy, currentUser, currentUserTakenSet]);
 
   // Pagination & totalPages
   const totalPages = Math.ceil(sortedStudents.length / itemsPerPage) || 1;
@@ -824,8 +839,8 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <main className={`flex-1 w-full mx-auto ${location.pathname === '/login' ? 'max-w-md px-3 py-1 sm:py-4 flex flex-col justify-center' : 'max-w-6xl px-4 sm:px-6 py-6 sm:py-8'}`}>
-        <AnimatePresence mode="wait">
+      <main className="flex-1 w-full mx-auto max-w-6xl px-4 sm:px-6 py-4 sm:py-6 flex flex-col">
+        <AnimatePresence>
           <Routes location={location}>
             <Route
               path="/"
@@ -866,7 +881,7 @@ export default function App() {
                     handleGenerateReport={handleGenerateReport}
                     handleFilterPhotoStatusChange={handleFilterPhotoStatusChange}
                     loadData={loadData}
-                    hasTakenPhoto={hasTakenPhoto}
+                    hasTakenPhoto={fastHasTakenPhoto}
                   />
                 )
               }

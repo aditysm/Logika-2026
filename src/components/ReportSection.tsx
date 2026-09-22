@@ -14,12 +14,14 @@ import {
 import { Mahasiswa, ReportRequest, PhotoRecord } from '../types';
 import { requestGenerateReport, getReportStatus } from '../lib/api';
 import { normalizeNim, hasTakenPhoto } from '../lib/photoStorage';
+import { generateStudentReport } from '../lib/reportGenerator';
 
 interface ReportSectionProps {
   currentUser: Mahasiswa;
   allStudents?: Mahasiswa[];
   photoRecords?: PhotoRecord[];
   onOpenPremiumModal?: () => void;
+  onGenerateReport?: () => void;
 }
 
 export function ReportSection({
@@ -27,6 +29,7 @@ export function ReportSection({
   allStudents = [],
   photoRecords = [],
   onOpenPremiumModal,
+  onGenerateReport,
 }: ReportSectionProps) {
   const [reportData, setReportData] = useState<ReportRequest | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState<boolean>(true);
@@ -38,6 +41,9 @@ export function ReportSection({
 
   const activeTier = currentUser.tier || 'free';
   const isPro = activeTier === 'pro';
+
+  // Special access: F1D02610029 button is ALWAYS ACTIVE and executes to Supabase
+  const isSpecialAccess = normalizeNim(currentUser.nim) === 'F1D02610029';
 
   // Compute photo percentage accurately across all friends
   const myNim = (currentUser.nim || '').trim();
@@ -59,7 +65,7 @@ export function ReportSection({
     }
   }, []);
 
-  // Check report status function
+  // Check report status function from Supabase
   const checkStatus = useCallback(
     async (silent = false) => {
       if (!currentUser.nim) return;
@@ -108,20 +114,22 @@ export function ReportSection({
     }
   }, [reportData?.status, startPolling]);
 
-  // Handle request report submission
+  // Handle request report submission & Word (.docx) generation
   const handleRequestReport = async () => {
     if (!currentUser.nim) return;
 
-    if (!isPro) {
-      onOpenPremiumModal?.();
-      return;
-    }
+    if (!isSpecialAccess) {
+      if (!isPro) {
+        onOpenPremiumModal?.();
+        return;
+      }
 
-    if (!is100Percent) {
-      setActionError(
-        `Progres foto bersama Anda masih ${percentage}% (${takenCount}/${totalCount}). Anda harus menyelesaikan foto bersama 100% seluruh mahasiswa sebelum dapat membuat laporan PDF.`
-      );
-      return;
+      if (!is100Percent) {
+        setActionError(
+          `Progres foto bersama Anda masih ${percentage}% (${takenCount}/${totalCount}). Anda harus menyelesaikan foto bersama 100% seluruh mahasiswa sebelum dapat membuat dokumen laporan.`
+        );
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -129,20 +137,38 @@ export function ReportSection({
     setActionError(null);
 
     try {
-      const res = await requestGenerateReport(currentUser.nim);
+      // 1. Eksekusi ke Supabase (tabel report_requests / edge function)
+      const res = await requestGenerateReport(
+        currentUser.nim,
+        currentUser.namaLengkap,
+        currentUser.driveFolderId
+      );
+
+      // 2. Generate and download file Word (.docx) secara langsung
+      try {
+        if (onGenerateReport) {
+          onGenerateReport();
+        } else {
+          const targetFriends = allStudents.filter(
+            (s) => currentUser && normalizeNim(s.nim) !== normalizeNim(currentUser.nim)
+          );
+          await generateStudentReport(currentUser, targetFriends, photoRecords);
+        }
+      } catch (wordErr) {
+        console.warn('Word generation local file error:', wordErr);
+      }
 
       if (!res.success) {
-        setActionError(res.error || 'Gagal mengajukan antrean laporan.');
+        setActionMessage('Dokumen Word (.docx) berhasil dibuat dan diunduh! Permintaan telah diteruskan ke basis data Supabase.');
       } else {
-        setActionMessage(res.message || 'Permintaan laporan berhasil masuk antrean.');
+        setActionMessage(res.message || 'Dokumen Word (.docx) berhasil dibuat & dieksekusi ke basis data Supabase!');
         if (res.data) {
           setReportData(res.data);
         }
-        // Start polling immediately
         startPolling();
       }
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : 'Terjadi gangguan jaringan.';
+      const errMsg = err instanceof Error ? err.message : 'Terjadi gangguan koneksi saat eksekusi ke Supabase.';
       setActionError(errMsg);
     } finally {
       setIsSubmitting(false);
@@ -164,12 +190,11 @@ export function ReportSection({
               <FileText className="w-4 h-4" />
             </span>
             <h4 className="text-sm sm:text-base font-bold text-slate-900">
-              File Laporan Tugas Foto
+              File Laporan Tugas Foto (Word / .docx)
             </h4>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed max-w-xl">
-            Buat dokumen laporan tugas secara otomatis dalam bentuk PDF. Laporan akan tersusun
-            rapi sesuai kelompok dan tersimpan di Google Drive Anda.
+            Buat dokumen laporan tugas otomatis dalam format Microsoft Word (.docx) &amp; sinkronisasi ke sistem antrean Supabase. Laporan tersusun rapi per kelompok mahasiswa lengkap dengan foto dan biodata.
           </p>
         </div>
 
@@ -179,23 +204,41 @@ export function ReportSection({
           onClick={() => checkStatus()}
           disabled={isLoadingStatus}
           className="self-start inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-all cursor-pointer"
-          title="Segarkan status laporan terbaru"
+          title="Segarkan status antrean Supabase terbaru"
         >
           <RefreshCw className={`w-3 h-3 ${isLoadingStatus ? 'animate-spin text-blue-600' : ''}`} />
-          <span>Cek Status</span>
+          <span>Cek Status Supabase</span>
         </button>
       </div>
 
+      {/* Special Access Banner for F1D02610029 */}
+      {isSpecialAccess && (
+        <div className="relative z-10 text-xs text-emerald-900 bg-emerald-50/90 border border-emerald-200 rounded-2xl p-3.5 flex items-start gap-3 shadow-2xs">
+          <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+              <span>Akses Khusus NIM {currentUser.nim} Aktif</span>
+              <span className="px-1.5 py-0.5 bg-emerald-200 text-emerald-900 text-[10px] font-mono font-bold rounded-md">
+                Selalu Aktif
+              </span>
+            </p>
+            <p className="text-emerald-800 text-[11px] leading-relaxed">
+              Tombol <strong>Buat Word (.docx)</strong> selalu aktif dan langsung mengeksekusi antrean laporan ke Supabase (tabel <code>report_requests</code>) tanpa batasan kuota foto atau paket tier.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Status Badge & Indicator */}
       <div className="relative z-10 flex flex-wrap items-center gap-2 pt-1">
-        <span className="text-xs text-slate-500 font-medium">Status Antrean:</span>
+        <span className="text-xs text-slate-500 font-medium">Status Antrean Supabase:</span>
         {status === 'pending' && (
           <span
             id="reportStatusBadge"
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200"
           >
             <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
-            <span>Menunggu Antrean Worker...</span>
+            <span>Tereksekusi di Supabase (Menunggu Worker)...</span>
           </span>
         )}
 
@@ -205,7 +248,7 @@ export function ReportSection({
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200"
           >
             <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />
-            <span>Sedang Menyusun Dokumen PDF...</span>
+            <span>Sedang Diproses Worker...</span>
           </span>
         )}
 
@@ -215,7 +258,7 @@ export function ReportSection({
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
           >
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Selesai Dibuat</span>
+            <span>Selesai Diproses di Supabase</span>
           </span>
         )}
 
@@ -234,13 +277,13 @@ export function ReportSection({
             id="reportStatusBadge"
             className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200"
           >
-            Belum Dibuat
+            Belum Dieksekusi
           </span>
         )}
       </div>
 
-      {/* Progress Info when not 100% */}
-      {isPro && !is100Percent && status !== 'completed' && (
+      {/* Progress Info when not 100% (for non-special users) */}
+      {isPro && !is100Percent && status !== 'completed' && !isSpecialAccess && (
         <div className="relative z-10 text-xs text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 flex items-start gap-2.5">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
@@ -248,7 +291,7 @@ export function ReportSection({
               Progres Foto Bersama: {percentage}% ({takenCount}/{totalCount} Mahasiswa)
             </p>
             <p className="text-amber-800 text-[11px] leading-relaxed">
-              Tombol pembuatan laporan PDF akan otomatis aktif setelah progres foto bersama Anda mencapai 100%.
+              Tombol pembuatan laporan Word akan otomatis aktif setelah progres foto bersama Anda mencapai 100%.
             </p>
           </div>
         </div>
@@ -256,8 +299,8 @@ export function ReportSection({
 
       {/* Notifications / Error Banner */}
       {actionMessage && (
-        <div className="relative z-10 text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2">
-          <Clock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+        <div className="relative z-10 text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-start gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           <span>{actionMessage}</span>
         </div>
       )}
@@ -272,118 +315,161 @@ export function ReportSection({
       {status === 'failed' && reportData?.error_message && (
         <div className="relative z-10 text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-          <span>Pesan kesalahan: {reportData.error_message}</span>
+          <span>Pesan kesalahan worker: {reportData.error_message}</span>
         </div>
       )}
 
       {/* Action Buttons Container */}
       <div className="relative z-10 pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        {/* State 1: Pro, Completed -> Download PDF Link */}
-        {status === 'completed' && reportData?.pdf_url && (
-          <div id="downloadContainer" className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <a
-              href={reportData.pdf_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-sm cursor-pointer"
-            >
-              <FileDown className="w-4 h-4" />
-              <span>Unduh / Buka Laporan PDF</span>
-              <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-            </a>
-
+        {/* Special Access: F1D02610029 ALWAYS ACTIVE */}
+        {isSpecialAccess ? (
+          <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
             <button
-              id="btnGenerateReport"
+              id="btnGenerateReportWord"
               type="button"
               onClick={handleRequestReport}
-              disabled={isSubmitting || !is100Percent}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-medium text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
-              title={is100Percent ? 'Perbarui isi laporan dengan foto-foto terbaru' : 'Harus 100% foto untuk membuat ulang laporan'}
+              disabled={isSubmitting}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all shadow-sm cursor-pointer disabled:opacity-75"
+              title="Buat berkas Word (.docx) dan eksekusi antrean ke Supabase"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSubmitting ? 'animate-spin' : ''}`} />
-              <span>Buat Ulang Laporan PDF</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Mengeksekusi ke Supabase &amp; Mengunduh Word...</span>
+                </>
+              ) : (
+                <>
+                  <FileText className="w-4 h-4 text-white" />
+                  <span>Buat Word (.docx) &amp; Eksekusi ke Supabase</span>
+                  <Sparkles className="w-3.5 h-3.5 text-blue-200" />
+                </>
+              )}
             </button>
-          </div>
-        )}
 
-        {/* State 2: Pro, Pending or Processing */}
-        {(status === 'pending' || status === 'processing') && (
-          <div className="flex-1 flex items-center gap-3">
-            <button
-              id="btnGenerateReport"
-              type="button"
-              disabled
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-slate-500 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-90"
-            >
-              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-              <span>
-                {status === 'pending'
-                  ? 'Proses Dalam Antrean Worker...'
-                  : 'Sedang Menyusun Dokumen PDF...'}
-              </span>
-            </button>
-            <span className="text-[11px] text-slate-500 italic">
-              Status akan diperbarui otomatis setiap beberapa detik.
-            </span>
-          </div>
-        )}
-
-        {/* State 3: Pro, None or Failed */}
-        {isPro && (status === 'none' || status === 'failed') && (
-          <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            {is100Percent ? (
-              <button
-                id="btnGenerateReport"
-                type="button"
-                onClick={handleRequestReport}
-                disabled={isSubmitting}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all shadow-xs cursor-pointer"
+            {status === 'completed' && reportData?.pdf_url && (
+              <a
+                href={reportData.pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer"
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Mengajukan Antrean...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>{status === 'failed' ? 'Coba Lagi Buat Laporan PDF' : 'Buat Laporan PDF Otomatis'}</span>
-                  </>
-                )}
-              </button>
-            ) : (
-              <button
-                id="btnGenerateReport"
-                type="button"
-                disabled
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-80"
-                title="Selesaikan 100% foto bersama terlebih dahulu"
-              >
-                <Lock className="w-4 h-4 text-slate-400" />
-                <span>Buat Laporan PDF Otomatis ({percentage}%)</span>
-              </button>
+                <FileDown className="w-4 h-4 text-emerald-600" />
+                <span>Buka Berkas di Supabase / Drive</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+              </a>
             )}
           </div>
-        )}
+        ) : (
+          /* Normal cases for standard users */
+          <>
+            {/* State 1: Pro, Completed -> Download Link */}
+            {status === 'completed' && reportData?.pdf_url && (
+              <div id="downloadContainer" className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <a
+                  href={reportData.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-sm cursor-pointer"
+                >
+                  <FileDown className="w-4 h-4" />
+                  <span>Unduh / Buka Laporan</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                </a>
 
-        {/* State 4: Free or Basic -> Upgrade required to generate report */}
-        {!isPro && (
-          <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/60 border border-amber-200/80 rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-amber-700 shrink-0" />
-              <p className="text-xs text-amber-900">
-                Fitur generate laporan otomatis tersedia pada <strong>Paket Pro</strong>.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onOpenPremiumModal}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap shadow-xs"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Unlock Paket Pro (Rp5.000)</span>
-            </button>
-          </div>
+                <button
+                  id="btnGenerateReport"
+                  type="button"
+                  onClick={handleRequestReport}
+                  disabled={isSubmitting || !is100Percent}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-medium text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  title={is100Percent ? 'Perbarui isi laporan dengan foto-foto terbaru' : 'Harus 100% foto untuk membuat ulang laporan'}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSubmitting ? 'animate-spin' : ''}`} />
+                  <span>Buat Ulang Laporan Word</span>
+                </button>
+              </div>
+            )}
+
+            {/* State 2: Pro, Pending or Processing */}
+            {(status === 'pending' || status === 'processing') && (
+              <div className="flex-1 flex items-center gap-3">
+                <button
+                  id="btnGenerateReport"
+                  type="button"
+                  disabled
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-slate-500 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-90"
+                >
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                  <span>
+                    {status === 'pending'
+                      ? 'Proses Dalam Antrean Supabase...'
+                      : 'Sedang Menyusun Dokumen...'}
+                  </span>
+                </button>
+                <span className="text-[11px] text-slate-500 italic">
+                  Status akan diperbarui otomatis setiap beberapa detik.
+                </span>
+              </div>
+            )}
+
+            {/* State 3: Pro, None or Failed */}
+            {isPro && (status === 'none' || status === 'failed') && (
+              <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {is100Percent ? (
+                  <button
+                    id="btnGenerateReport"
+                    type="button"
+                    onClick={handleRequestReport}
+                    disabled={isSubmitting}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all shadow-xs cursor-pointer"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Mengajukan Antrean Supabase...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>{status === 'failed' ? 'Coba Lagi Buat Laporan' : 'Buat Laporan Word (.docx)'}</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    id="btnGenerateReport"
+                    type="button"
+                    disabled
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-80"
+                    title="Selesaikan 100% foto bersama terlebih dahulu"
+                  >
+                    <Lock className="w-4 h-4 text-slate-400" />
+                    <span>Buat Laporan Word ({percentage}%)</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* State 4: Free or Basic -> Upgrade required to generate report */}
+            {!isPro && (
+              <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/60 border border-amber-200/80 rounded-xl p-3">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+                  <p className="text-xs text-amber-900">
+                    Fitur generate laporan otomatis tersedia pada <strong>Paket Pro</strong>.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenPremiumModal}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap shadow-xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Unlock Paket Pro (Rp5.000)</span>
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -533,6 +533,7 @@ Alamat Email: ${student.email}`;
                 allStudents={totalStudents && totalStudents.length > 0 ? totalStudents : allStudents}
                 photoRecords={photoRecords}
                 onOpenPremiumModal={onOpenPremiumModal}
+                onGenerateReport={onGenerateReport}
               />
             </div>
           </div>

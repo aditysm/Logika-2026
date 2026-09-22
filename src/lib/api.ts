@@ -426,7 +426,11 @@ export function extractDriveFolderId(urlOrId: string): string {
  * Request server-side automated PDF report generation queue
  * Sends POST /request-report with { nim }
  */
-export async function requestGenerateReport(userNim: string): Promise<{
+export async function requestGenerateReport(
+  userNim: string,
+  studentName?: string,
+  driveFolderId?: string
+): Promise<{
   success: boolean;
   message?: string;
   is_already_in_queue?: boolean;
@@ -438,7 +442,11 @@ export async function requestGenerateReport(userNim: string): Promise<{
     return { success: false, error: 'NIM wajib disertakan untuk mengajukan pembuatan laporan.' };
   }
 
-  const payload = { nim: cleanNim };
+  const payload = {
+    nim: cleanNim,
+    nama_lengkap: studentName,
+    drive_folder_id: driveFolderId,
+  };
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${SUPABASE_ANON_KEY_IN_CODE}`,
@@ -476,7 +484,7 @@ export async function requestGenerateReport(userNim: string): Promise<{
     }
   }
 
-  // 2. Direct Database Fallback to 'report_requests' table if Edge Function endpoint is unreachable
+  // 2. Direct Database Fallback to 'report_requests' table in Supabase
   try {
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -497,17 +505,27 @@ export async function requestGenerateReport(userNim: string): Promise<{
         };
       }
 
-      // Check profile to retrieve drive_folder_id
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('nim, nama_lengkap, drive_folder_id')
-        .eq('nim', cleanNim)
-        .maybeSingle();
+      // Check profile to retrieve drive_folder_id if not provided
+      let namaLengkap = studentName || 'Mahasiswa';
+      let folderId = driveFolderId || '';
+
+      if (!studentName || !driveFolderId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('nim, nama_lengkap, drive_folder_id')
+          .eq('nim', cleanNim)
+          .maybeSingle();
+
+        if (profile) {
+          if (!studentName && profile.nama_lengkap) namaLengkap = profile.nama_lengkap;
+          if (!driveFolderId && profile.drive_folder_id) folderId = profile.drive_folder_id;
+        }
+      }
 
       const newRecord = {
         nim: cleanNim,
-        nama_lengkap: profile?.nama_lengkap || 'Mahasiswa',
-        drive_folder_id: profile?.drive_folder_id || '',
+        nama_lengkap: namaLengkap,
+        drive_folder_id: folderId,
         status: 'pending',
         created_at: new Date().toISOString(),
       };
@@ -521,7 +539,7 @@ export async function requestGenerateReport(userNim: string): Promise<{
       if (!insertErr && inserted) {
         return {
           success: true,
-          message: 'Permintaan laporan berhasil masuk antrean basis data!',
+          message: 'Permintaan laporan Word berhasil dieksekusi dan disimpan di Supabase!',
           data: inserted as ReportRequest,
         };
       }
@@ -532,7 +550,7 @@ export async function requestGenerateReport(userNim: string): Promise<{
 
   return {
     success: false,
-    error: 'Tidak dapat terhubung ke server antrean laporan. Silakan coba lagi nanti.',
+    error: 'Tidak dapat terhubung ke server antrean laporan Supabase. Silakan periksa koneksi Anda.',
   };
 }
 
