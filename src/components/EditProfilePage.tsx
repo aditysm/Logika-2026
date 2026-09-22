@@ -121,7 +121,11 @@ export function EditProfilePage({
       asalRumah: asalRumah.trim(),
       alamatRumahDomisili: alamatRumahDomisili.trim(),
       hobi: hobi.trim(),
-      driveFolderUrl: (currentUser.tier || 'free') !== 'free' ? 'https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX' : undefined,
+      driveFolderUrl:
+        currentUser.driveFolderUrl ||
+        (currentUser.driveFolderId
+          ? `https://drive.google.com/drive/folders/${currentUser.driveFolderId}`
+          : 'https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX'),
     };
 
     // 1. Send update to Supabase Edge Function: ?action=update-profile
@@ -392,7 +396,12 @@ export function EditProfilePage({
               </div>
             ) : (
               <a
-                href="https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX"
+                href={
+                  currentUser.driveFolderUrl ||
+                  (currentUser.driveFolderId
+                    ? `https://drive.google.com/drive/folders/${currentUser.driveFolderId}`
+                    : 'https://drive.google.com/drive/folders/1oqXx0wzzKkkZajuBuC9xhv-pF6wDPPEX')
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between gap-4 p-3 bg-white border border-emerald-200 hover:border-emerald-300 rounded-xl hover:bg-emerald-50/20 transition-all cursor-pointer group"

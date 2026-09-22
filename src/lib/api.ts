@@ -395,20 +395,36 @@ export async function uploadFotoBersama(params: {
       console.error('Edge function upload error (FULL RAW):', fullRawDetails);
 
       const rawErr =
-        result?.error || result?.message || `Upload gagal dengan kode status ${response.status}: ${rawText}`;
+        result?.error || result?.message || (rawText ? `Upload gagal dengan kode status ${response.status}: ${rawText}` : '');
+
+      const userFacingError =
+        rawErr ||
+        getIntuitiveErrorMessage({ status: response.status, message: rawText || response.statusText });
+
+      console.error('[FULL RAW ERROR LOG: Edge function upload error]:', {
+        ...fullRawDetails,
+        userFacingError,
+      });
 
       return {
         success: false,
-        error: getIntuitiveErrorMessage({ status: response.status, message: rawErr }),
+        error: userFacingError,
         rawError: fullRawDetails,
       };
     }
 
     return { success: true, data: result };
   } catch (error: unknown) {
-    console.error('Edge function upload error (FULL RAW EXCEPTION):', error);
-    const msg = getIntuitiveErrorMessage(error, 'Koneksi ke backend upload gagal.');
-    return { success: false, error: msg, rawError: { rawResponseBody: String(error) } };
+    const errorString = error instanceof Error ? error.stack || error.message : String(error);
+    const fullRawDetails: RawErrorDetail = {
+      status: 0,
+      statusText: 'Network / Client Error',
+      url: `${SUPABASE_EDGE_FUNCTION_URL}/upload-photo`,
+      rawResponseBody: errorString,
+    };
+    console.error('[FULL RAW ERROR LOG: Edge function upload exception]:', fullRawDetails);
+    const msg = getIntuitiveErrorMessage(error, 'Koneksi ke server penyimpanan gagal.');
+    return { success: false, error: msg, rawError: fullRawDetails };
   }
 }
 

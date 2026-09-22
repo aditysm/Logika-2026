@@ -186,7 +186,8 @@ export function normalizeMahasiswaRow(
     }
   }
 
-  const driveFolderUrl = findValue(row, [
+  const rawDriveFolderId = findValue(row, ['drive_folder_id', 'drive_id', 'folder_id']).trim();
+  const rawDriveFolderUrl = findValue(row, [
     'drive_folder_url',
     'Folder Drive',
     'Folder Google Drive',
@@ -195,7 +196,16 @@ export function normalizeMahasiswaRow(
     'drive_folder',
     'drive_url',
     'folder_drive',
-  ]);
+  ]).trim();
+
+  // Extract clean folder ID and ensure canonical Google Drive URL
+  const effectiveDriveFolderId =
+    rawDriveFolderId ||
+    (rawDriveFolderUrl ? extractDriveFolderId(rawDriveFolderUrl) : '');
+
+  const driveFolderUrl =
+    rawDriveFolderUrl ||
+    (effectiveDriveFolderId ? `https://drive.google.com/drive/folders/${effectiveDriveFolderId}` : undefined);
 
   const rawTier = findValue(row, ['tier', 'status_tier', 'level', 'TIER', 'Tier']).toLowerCase().trim();
   const tier: 'free' | 'basic' | 'pro' = (rawTier === 'pro' || rawTier === 'basic') ? rawTier : 'free';
@@ -220,9 +230,8 @@ export function normalizeMahasiswaRow(
     hobi: hobi || '-',
     noWa: noWa || '-',
     kelompok: kelompok || 'Belum Ada Kelompok',
-    driveFolderUrl:
-      driveFolderUrl ||
-      (nim ? `https://drive.google.com/drive/folders/mhs-${nim.replace(/[\/\s]/g, '-')}` : undefined),
+    driveFolderUrl,
+    driveFolderId: effectiveDriveFolderId || undefined,
     tier,
     isLeader,
     raw: row,

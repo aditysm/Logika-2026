@@ -184,7 +184,7 @@ class PhotoService {
     }
   }
 
-  // Helper untuk mencari atau membuat subfolder Kelompok di Google Drive
+  // Helper untuk mencari atau menggunakan subfolder Kelompok yang sudah ada di Google Drive
   private static async getOrCreateKelompokFolder(
     token: string, 
     parentFolderId: string, 
@@ -195,26 +195,70 @@ class PhotoService {
     }
     const cleanFolderName = (kelompokName || 'KELOMPOK UMUM').trim();
 
-    // 1. Cek apakah folder kelompok sudah ada di dalam parent folder
-    const query = encodeURIComponent(
-      `name = '${cleanFolderName}' and '${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+    // 1. Ambil daftar semua subfolder yang sudah ada di dalam parent folder
+    // Menggunakan supportsAllDrives=true dan includeItemsFromAllDrives=true agar selalu menemukan folder yang ada
+    const listQuery = encodeURIComponent(
+      `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
     );
 
-    const searchRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&supportsAllDrives=true`,
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    );
+    try {
+      const searchRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${listQuery}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=100`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
 
-    if (searchRes.ok) {
-      const searchData = await searchRes.json();
-      if (searchData.files && searchData.files.length > 0) {
-        return searchData.files[0].id;
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        const existingFolders: Array<{ id: string; name: string }> = searchData.files || [];
+
+        if (existingFolders.length > 0) {
+          const lowerTarget = cleanFolderName.toLowerCase();
+          const targetGroupNum = cleanFolderName.match(/\d+/)?.[0];
+
+          // Priority 1: Exact match nama folder (case-insensitive)
+          const exactMatch = existingFolders.find(f => f.name.trim().toLowerCase() === lowerTarget);
+          if (exactMatch) {
+            console.log(`[Drive] Menemukan folder existing (exact match): '${exactMatch.name}' -> ID: ${exactMatch.id}`);
+            return exactMatch.id;
+          }
+
+          // Priority 2: Cocok nomor kelompok (misal 'Kelompok 1', 'KELOMPOK 01', 'Kelompok 1 - Firewall', dll)
+          if (targetGroupNum) {
+            const groupNumInt = parseInt(targetGroupNum, 10);
+            const numMatch = existingFolders.find(f => {
+              const fName = f.name.toLowerCase();
+              const fNum = fName.match(/\d+/)?.[0];
+              return fNum !== undefined && parseInt(fNum, 10) === groupNumInt;
+            });
+            if (numMatch) {
+              console.log(`[Drive] Menemukan folder existing berdasarkan nomor kelompok (${groupNumInt}): '${numMatch.name}' -> ID: ${numMatch.id}`);
+              return numMatch.id;
+            }
+          }
+
+          // Priority 3: Cocok berdasarkan kata kunci divisi / nama kelompok (misal 'FIREWALL', 'SWITCH', dll)
+          const words = cleanFolderName
+            .split(/[\s_-]+/)
+            .filter(w => w.length > 3 && !['kelompok', 'group'].includes(w.toLowerCase()));
+          if (words.length > 0) {
+            const keywordMatch = existingFolders.find(f => {
+              const fName = f.name.toLowerCase();
+              return words.some(w => fName.includes(w.toLowerCase()));
+            });
+            if (keywordMatch) {
+              console.log(`[Drive] Menemukan folder existing berdasarkan kata kunci (${words.join(',')}): '${keywordMatch.name}' -> ID: ${keywordMatch.id}`);
+              return keywordMatch.id;
+            }
+          }
+        }
       }
+    } catch (searchErr) {
+      console.warn("Pencarian subfolder existing di Drive menemukan kendala, melanjutkan ke verifikasi pembuatan:", searchErr);
     }
 
-    // 2. Jika belum ada, buat folder baru di dalam parent folder
+    // 2. Jika benar-benar belum ada folder yang cocok, baru buat subfolder baru di dalam parent folder
     const createRes = await fetch(
       `https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id,name`,
       {
@@ -233,7 +277,10 @@ class PhotoService {
 
     if (createRes.ok) {
       const createData = await createRes.json();
-      if (createData.id) return createData.id;
+      if (createData.id) {
+        console.log(`[Drive] Berhasil membuat subfolder baru '${cleanFolderName}' -> ID: ${createData.id}`);
+        return createData.id;
+      }
     } else {
       const errText = await createRes.text();
       throw new Error(`Akses Ditolak/Gagal membuat subfolder '${cleanFolderName}' di Drive ID (${parentFolderId}): ${errText}`);

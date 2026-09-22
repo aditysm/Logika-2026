@@ -14,6 +14,7 @@ import {
   Save,
   ShieldCheck,
   Sparkles,
+  Terminal,
   Trash2,
   Upload,
   User,
@@ -54,7 +55,13 @@ export function UploadPhotoPage({
   const [isSourcePickerOpen, setIsSourcePickerOpen] = useState(false);
 
   // Failure & Cache modal states
-  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+  const [errorModal, setErrorModal] = useState<{
+    title: string;
+    message: string;
+    rawDetails?: string;
+    rawJson?: string;
+  } | null>(null);
+  const [copiedRawError, setCopiedRawError] = useState(false);
 
   const draftKey = `draft_photo_${currentUser.nim}_${targetStudent.nim}`;
 
@@ -156,6 +163,9 @@ export function UploadPhotoPage({
     try {
       // 1. If we have binary File or cached preview, attempt upload
       if (selectedFile) {
+        const folderA = currentUser.driveFolderId || currentUser.driveFolderUrl || '';
+        const folderB = targetStudent.driveFolderId || targetStudent.driveFolderUrl || '';
+
         uploadRes = await uploadFotoBersama({
           file: selectedFile,
           nimA: currentUser.nim,
@@ -164,8 +174,8 @@ export function UploadPhotoPage({
           namaB: targetStudent.namaLengkap,
           kelompokA: currentUser.kelompok,
           kelompokB: targetStudent.kelompok,
-          folderIdA: currentUser.driveFolderUrl || '',
-          folderIdB: targetStudent.driveFolderUrl || '',
+          folderIdA: folderA,
+          folderIdB: folderB,
           totalFotoA: photoRecords.filter(
             (r) =>
               r.uploaderNim?.toLowerCase() === currentUser.nim?.toLowerCase() ||
@@ -184,19 +194,31 @@ export function UploadPhotoPage({
             console.log('Foto ini sudah pernah diunggah sebelumnya (duplikasi terdeteksi).');
           }
         } else {
-          console.error('Edge function upload error:', uploadRes.error);
-          console.error('Edge function upload error full raw:', {
-            error: uploadRes.error,
-            rawError: uploadRes.rawError,
+          const rawErr = uploadRes.rawError;
+          const rawReport = {
+            timestamp: new Date().toISOString(),
+            endpoint: rawErr?.url || 'https://cvjjdsxguzuhnnnxneec.supabase.co/functions/v1/logika/upload-photo',
+            httpStatus: rawErr?.status ?? 0,
+            httpStatusText: rawErr?.statusText ?? 'UNKNOWN',
             uploaderNim: currentUser.nim,
             targetNim: targetStudent.nim,
-          });
+            folderIdA: folderA,
+            folderIdB: folderB,
+            errorMessage: uploadRes.error || 'Terjadi kendala saat proses upload.',
+            serverRawResponseBody: rawErr?.rawResponseBody || null,
+            headers: rawErr?.headers || null,
+          };
+          const rawReportString = JSON.stringify(rawReport, null, 2);
+
+          console.error('=== [FULL RAW ERROR LOG: Edge function upload error] ===\n' + rawReportString);
+
           isUploadSuccess = false;
           serverError = uploadRes.error || 'Gagal mengunggah foto ke Google Drive.';
         }
       }
     } catch (err: unknown) {
-      console.error('Network upload error full raw:', err);
+      const errString = err instanceof Error ? err.stack || err.message : String(err);
+      console.error('=== [FULL RAW ERROR LOG: Network upload exception] ===\n' + errString);
       isUploadSuccess = false;
       serverError = getIntuitiveErrorMessage(err, 'Koneksi internet terputus atau server tidak merespons.');
     }
@@ -214,9 +236,24 @@ export function UploadPhotoPage({
         }
       }
 
+      const rawDetailText =
+        uploadRes?.rawError?.rawResponseBody ||
+        (uploadRes?.rawError ? JSON.stringify(uploadRes.rawError, null, 2) : '') ||
+        serverError;
+
+      const rawJsonPayload = JSON.stringify({
+        timestamp: new Date().toISOString(),
+        uploaderNim: currentUser.nim,
+        targetNim: targetStudent.nim,
+        error: serverError,
+        rawDetails: uploadRes?.rawError || null,
+      }, null, 2);
+
       setErrorModal({
         title: 'Upload Ke Drive Terkendala',
         message: serverError || 'Terjadi masalah jaringan atau izin Google Drive. Foto Anda telah disimpan di cache browser sehingga tidak hilang.',
+        rawDetails: rawDetailText,
+        rawJson: rawJsonPayload,
       });
       return;
     }
@@ -663,6 +700,47 @@ export function UploadPhotoPage({
                   <p className="mt-0.5 text-emerald-800">
                     Anda tidak perlu mengunggah ulang file foto dari perangkat. Anda dapat mencoba mengunggah kembali secara langsung atau menyimpannya secara lokal.
                   </p>
+                </div>
+              </div>
+
+              {/* Raw Error Details Box */}
+              <div className="bg-slate-900 rounded-2xl p-3.5 border border-slate-800 text-left space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider">
+                      Kode Log Error Raw / Respons Server
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const textToCopy = errorModal.rawDetails || errorModal.rawJson || errorModal.message;
+                      if (textToCopy) {
+                        navigator.clipboard.writeText(textToCopy);
+                        setCopiedRawError(true);
+                        setTimeout(() => setCopiedRawError(false), 2500);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                  >
+                    {copiedRawError ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span>Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Salin Log Raw</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="max-h-44 overflow-y-auto overflow-x-auto rounded-xl bg-slate-950 p-2.5 border border-slate-800/80">
+                  <pre className="font-mono text-[11px] leading-relaxed text-rose-300 whitespace-pre-wrap break-all select-all">
+                    {errorModal.rawDetails || errorModal.rawJson || errorModal.message}
+                  </pre>
                 </div>
               </div>
 
