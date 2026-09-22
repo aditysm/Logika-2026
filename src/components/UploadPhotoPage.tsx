@@ -14,7 +14,6 @@ import {
   Save,
   ShieldCheck,
   Sparkles,
-  Terminal,
   Trash2,
   Upload,
   User,
@@ -58,10 +57,8 @@ export function UploadPhotoPage({
   const [errorModal, setErrorModal] = useState<{
     title: string;
     message: string;
-    rawDetails?: string;
-    rawJson?: string;
+    suggestion?: string;
   } | null>(null);
-  const [copiedRawError, setCopiedRawError] = useState(false);
 
   const draftKey = `draft_photo_${currentUser.nim}_${targetStudent.nim}`;
 
@@ -210,7 +207,8 @@ export function UploadPhotoPage({
           };
           const rawReportString = JSON.stringify(rawReport, null, 2);
 
-          console.error('=== [FULL RAW ERROR LOG: Edge function upload error] ===\n' + rawReportString);
+          // Simpan log teknis lengkap ke konsol website untuk developer/admin
+          console.error('=== [WEBSITE ERROR LOG: Edge function upload error] ===\n' + rawReportString);
 
           isUploadSuccess = false;
           serverError = uploadRes.error || 'Gagal mengunggah foto ke Google Drive.';
@@ -218,7 +216,8 @@ export function UploadPhotoPage({
       }
     } catch (err: unknown) {
       const errString = err instanceof Error ? err.stack || err.message : String(err);
-      console.error('=== [FULL RAW ERROR LOG: Network upload exception] ===\n' + errString);
+      // Simpan log teknis lengkap ke konsol website
+      console.error('=== [WEBSITE ERROR LOG: Network upload exception] ===\n' + errString);
       isUploadSuccess = false;
       serverError = getIntuitiveErrorMessage(err, 'Koneksi internet terputus atau server tidak merespons.');
     }
@@ -236,24 +235,10 @@ export function UploadPhotoPage({
         }
       }
 
-      const rawDetailText =
-        uploadRes?.rawError?.rawResponseBody ||
-        (uploadRes?.rawError ? JSON.stringify(uploadRes.rawError, null, 2) : '') ||
-        serverError;
-
-      const rawJsonPayload = JSON.stringify({
-        timestamp: new Date().toISOString(),
-        uploaderNim: currentUser.nim,
-        targetNim: targetStudent.nim,
-        error: serverError,
-        rawDetails: uploadRes?.rawError || null,
-      }, null, 2);
-
       setErrorModal({
-        title: 'Upload Ke Drive Terkendala',
-        message: serverError || 'Terjadi masalah jaringan atau izin Google Drive. Foto Anda telah disimpan di cache browser sehingga tidak hilang.',
-        rawDetails: rawDetailText,
-        rawJson: rawJsonPayload,
+        title: 'Unggah Foto Belum Berhasil',
+        message: serverError || 'Koneksi ke Google Drive terputus atau izin folder belum diberikan.',
+        suggestion: 'Pastikan koneksi internet stabil dan folder Google Drive Anda serta teman dapat diakses.',
       });
       return;
     }
@@ -679,14 +664,14 @@ export function UploadPhotoPage({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-2xs border border-rose-200 shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-2xs border border-rose-200/80 shrink-0">
                   <AlertTriangle className="w-6 h-6" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900">
                     {errorModal.title}
                   </h3>
-                  <p className="text-xs text-rose-600 font-medium mt-0.5">
+                  <p className="text-xs text-rose-700 font-medium mt-1 leading-relaxed">
                     {errorModal.message}
                   </p>
                 </div>
@@ -696,52 +681,23 @@ export function UploadPhotoPage({
               <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-2xl flex items-start gap-2.5 text-xs text-emerald-900">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                 <div className="leading-relaxed">
-                  <p className="font-bold text-emerald-950">Foto Anda Tersimpan Aman di Cache Browser!</p>
+                  <p className="font-bold text-emerald-950">Foto Anda Tersimpan Aman di Draf!</p>
                   <p className="mt-0.5 text-emerald-800">
-                    Anda tidak perlu mengunggah ulang file foto dari perangkat. Anda dapat mencoba mengunggah kembali secara langsung atau menyimpannya secara lokal.
+                    Anda tidak perlu mengunggah ulang berkas foto dari galeri. Anda dapat mencoba mengunggah kembali sekarang atau menyimpannya sebagai draf lokal.
                   </p>
                 </div>
               </div>
 
-              {/* Raw Error Details Box */}
-              <div className="bg-slate-900 rounded-2xl p-3.5 border border-slate-800 text-left space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-rose-400 shrink-0" />
-                    <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider">
-                      Kode Log Error Raw / Respons Server
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const textToCopy = errorModal.rawDetails || errorModal.rawJson || errorModal.message;
-                      if (textToCopy) {
-                        navigator.clipboard.writeText(textToCopy);
-                        setCopiedRawError(true);
-                        setTimeout(() => setCopiedRawError(false), 2500);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg border border-slate-700 transition-colors cursor-pointer"
-                  >
-                    {copiedRawError ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-400" />
-                        <span>Tersalin!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" />
-                        <span>Salin Log Raw</span>
-                      </>
-                    )}
-                  </button>
+              {/* Intuitive User Tips Box */}
+              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl space-y-1.5 text-xs text-slate-700">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                  <Info className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span>Tips Penyelesaian:</span>
                 </div>
-                <div className="max-h-44 overflow-y-auto overflow-x-auto rounded-xl bg-slate-950 p-2.5 border border-slate-800/80">
-                  <pre className="font-mono text-[11px] leading-relaxed text-rose-300 whitespace-pre-wrap break-all select-all">
-                    {errorModal.rawDetails || errorModal.rawJson || errorModal.message}
-                  </pre>
-                </div>
+                <ul className="list-disc list-inside space-y-1 text-slate-600 pl-1">
+                  <li>Pastikan perangkat terhubung dengan jaringan internet yang stabil.</li>
+                  <li>Pastikan folder Google Drive Anda dan teman telah disetel ke <strong>"Siapa saja yang memiliki tautan dapat mengedit"</strong>.</li>
+                </ul>
               </div>
 
               {/* Action Buttons */}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   ArrowLeft,
@@ -33,6 +33,8 @@ import {
   Sparkles,
   FileDown,
   RefreshCw,
+  KeyRound,
+  ShieldAlert,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
@@ -84,6 +86,75 @@ export function StudentDetailView({
   const [copiedAll, setCopiedAll] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
 
+  // Security protection for copying data of NIM F1D02610029
+  const isTargetProtected = Boolean(student.nim && student.nim.trim().toUpperCase() === 'F1D02610029');
+  const isCurrentUserOwner = Boolean(currentUser?.nim && currentUser.nim.trim().toUpperCase() === 'F1D02610029');
+
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [pendingCopyAction, setPendingCopyAction] = useState<(() => void) | null>(null);
+  const [isCopyUnlocked, setIsCopyUnlocked] = useState(() => {
+    try {
+      return sessionStorage.getItem('f1d_copy_unlocked') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const checkProtectionAndExecute = (action: () => void) => {
+    if (!isTargetProtected) {
+      action();
+      return;
+    }
+
+    // NIM is F1D02610029:
+    // 1. Only the owner account who is currently logged in can copy this data
+    if (!isCurrentUserOwner) {
+      setPasswordError('Data mahasiswa dengan NIM F1D02610029 diproteksi. Hanya pemilik akun yang sedang login yang dapat menyalin data ini.');
+      setPasswordModalOpen(true);
+      setPendingCopyAction(null);
+      return;
+    }
+
+    // 2. If logged in as F1D02610029, check password qwerty31
+    if (isCopyUnlocked) {
+      action();
+      return;
+    }
+
+    setPasswordError(null);
+    setPasswordInput('');
+    setPendingCopyAction(() => action);
+    setPasswordModalOpen(true);
+  };
+
+  const handleVerifyPassword = (e: FormEvent) => {
+    e.preventDefault();
+    if (!isCurrentUserOwner) {
+      setPasswordError('Akses ditolak. Hanya akun NIM F1D02610029 yang berhak menyalin data ini.');
+      return;
+    }
+
+    if (passwordInput.trim() === 'qwerty31') {
+      setIsCopyUnlocked(true);
+      try {
+        sessionStorage.setItem('f1d_copy_unlocked', 'true');
+      } catch {
+        // ignore
+      }
+      setPasswordModalOpen(false);
+      setPasswordInput('');
+      setPasswordError(null);
+      if (pendingCopyAction) {
+        pendingCopyAction();
+        setPendingCopyAction(null);
+      }
+    } else {
+      setPasswordError('Password salah! Akses salin data ditolak.');
+    }
+  };
+
   const [showQr, setShowQr] = useState(false);
   const [isCheckedInTracking, setIsCheckedInTracking] = useState(false);
   const [isTrackingLoading, setIsTrackingLoading] = useState(false);
@@ -131,14 +202,18 @@ export function StudentDetailView({
 
   const waUrl = formatWhatsAppUrl(student.noWa, student.namaPanggilan || student.namaLengkap, currentUser);
 
-  const handleCopy = (text: string, label: string) => {
+  const executeCopy = (text: string, label: string) => {
     if (!text || text === '-') return;
     navigator.clipboard.writeText(text);
     setCopiedField(label);
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const handleCopyAll = () => {
+  const handleCopy = (text: string, label: string) => {
+    checkProtectionAndExecute(() => executeCopy(text, label));
+  };
+
+  const executeCopyAll = () => {
     const summary = `DATA MAHASISWA LOGIKA 2026
 Nama Lengkap: ${student.namaLengkap}
 Nama Panggilan: ${student.namaPanggilan}
@@ -153,6 +228,10 @@ Alamat Email: ${student.email}`;
     navigator.clipboard.writeText(summary);
     setCopiedAll(true);
     setTimeout(() => setCopiedAll(false), 2000);
+  };
+
+  const handleCopyAll = () => {
+    checkProtectionAndExecute(executeCopyAll);
   };
 
   const getProfileUrl = () => {
@@ -973,6 +1052,115 @@ Alamat Email: ${student.email}`;
           <span>Kembali ke Menu Utama</span>
         </button>
       </div>
+
+      {/* Modal Proteksi Password Salin Data NIM F1D02610029 */}
+      <AnimatePresence>
+        {passwordModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
+            onClick={() => {
+              setPasswordModalOpen(false);
+              setPasswordError(null);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200/90 relative my-6 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {!isCurrentUserOwner ? (
+                // Tampilan jika yang mencoba menyalin BUKAN pemilik NIM F1D02610029
+                <div className="space-y-4 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center mx-auto">
+                    <ShieldAlert className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-base font-bold text-slate-900">
+                      Akses Salin Data Diproteksi
+                    </h3>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Data profil mahasiswa dengan NIM <strong className="text-slate-900 font-mono">F1D02610029</strong> diproteksi keamanan khusus. Hanya pemilik akun yang sedang login yang dapat menyalin data ini.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setPasswordModalOpen(false)}
+                      className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Saya Mengerti
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Tampilan jika sedang login sebagai pemilik (NIM F1D02610029) dan harus memasukkan password qwerty31
+                <form onSubmit={handleVerifyPassword} className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+                      <KeyRound className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">
+                        Verifikasi Keamanan Salin Data
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        NIM F1D02610029 diproteksi password
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Silakan masukkan password keamanan untuk menyalin data mahasiswa ini ke clipboard:
+                  </p>
+
+                  <div className="space-y-2">
+                    <input
+                      type="password"
+                      autoFocus
+                      value={passwordInput}
+                      onChange={(e) => {
+                        setPasswordInput(e.target.value);
+                        if (passwordError) setPasswordError(null);
+                      }}
+                      placeholder="Masukkan password..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm font-medium transition-all"
+                    />
+                    {passwordError && (
+                      <p className="text-xs text-rose-600 font-semibold flex items-center gap-1.5">
+                        <ShieldAlert className="w-4 h-4 shrink-0" />
+                        <span>{passwordError}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPasswordModalOpen(false);
+                        setPasswordInput('');
+                        setPasswordError(null);
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs transition-all shadow-xs cursor-pointer"
+                    >
+                      Verifikasi &amp; Salin
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

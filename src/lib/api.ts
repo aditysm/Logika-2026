@@ -392,19 +392,19 @@ export async function uploadFotoBersama(params: {
         parsedResult: result,
       };
 
-      console.error('Edge function upload error (FULL RAW):', fullRawDetails);
+      const rawErr = result?.error || result?.message || rawText || response.statusText;
 
-      const rawErr =
-        result?.error || result?.message || (rawText ? `Upload gagal dengan kode status ${response.status}: ${rawText}` : '');
-
-      const userFacingError =
-        rawErr ||
-        getIntuitiveErrorMessage({ status: response.status, message: rawText || response.statusText });
-
-      console.error('[FULL RAW ERROR LOG: Edge function upload error]:', {
+      // Keep full technical diagnostics in website developer logs
+      console.error('[WEBSITE ERROR LOG: Edge function upload error]:', {
         ...fullRawDetails,
-        userFacingError,
+        rawErrorMessage: rawErr,
       });
+
+      // Convert to clean, intuitive, user-friendly message for website UI
+      const userFacingError = getIntuitiveErrorMessage(
+        result?.error || result?.message || { status: response.status, message: rawText || response.statusText },
+        'Gagal mengunggah foto ke Google Drive.'
+      );
 
       return {
         success: false,
@@ -422,8 +422,9 @@ export async function uploadFotoBersama(params: {
       url: `${SUPABASE_EDGE_FUNCTION_URL}/upload-photo`,
       rawResponseBody: errorString,
     };
-    console.error('[FULL RAW ERROR LOG: Edge function upload exception]:', fullRawDetails);
-    const msg = getIntuitiveErrorMessage(error, 'Koneksi ke server penyimpanan gagal.');
+    // Keep raw technical exception in website console logs
+    console.error('[WEBSITE ERROR LOG: Edge function upload exception]:', fullRawDetails);
+    const msg = getIntuitiveErrorMessage(error, 'Koneksi ke server penyimpanan terputus.');
     return { success: false, error: msg, rawError: fullRawDetails };
   }
 }

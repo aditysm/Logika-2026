@@ -19,9 +19,11 @@ import { LogoutConfirmModal } from './components/LogoutConfirmModal';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { PricingPage } from './components/PricingPage';
 import { TrackingPage } from './components/TrackingPage';
+import { LeaderboardPage } from './components/LeaderboardPage';
 import { AdminModePage } from './components/AdminModePage';
 import { MainListView } from './components/MainListView';
 import { TierWarningBanner } from './components/TierWarningBanner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { generateStudentReport } from './lib/reportGenerator';
 import { requestGenerateReport } from './lib/api';
 import { ConnectionStatus, Mahasiswa, PhotoRecord } from './types';
@@ -66,6 +68,9 @@ import {
   AlertCircle,
   AlertTriangle,
   Info,
+  Home,
+  LogIn,
+  Trophy,
 } from 'lucide-react';
 import { getIntuitiveErrorMessage } from './lib/errorHandler';
 
@@ -187,15 +192,19 @@ export default function App() {
     const match = location.pathname.match(/^\/mhs\/([^/]+)$/);
     if (!match) return null;
     const nim = decodeURIComponent(match[1]);
-    return students.find(s => s.nim === nim || s.id === nim) || null;
+    return findStudentInList(students, nim);
   }, [location.pathname, students]);
 
-  const uploadTargetStudent = useMemo(() => {
+  const uploadParamNim = useMemo(() => {
     const match = location.pathname.match(/^\/upload\/([^/]+)$/);
     if (!match) return null;
-    const nim = decodeURIComponent(match[1]);
-    return students.find(s => s.nim === nim || s.id === nim) || null;
-  }, [location.pathname, students]);
+    return decodeURIComponent(match[1]);
+  }, [location.pathname]);
+
+  const uploadTargetStudent = useMemo(() => {
+    if (!uploadParamNim) return null;
+    return findStudentInList(students, uploadParamNim);
+  }, [uploadParamNim, students]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -412,6 +421,18 @@ export default function App() {
     }
   };
 
+  const handleOpenLeaderboard = () => {
+    navigate('/rangking');
+  };
+
+  const handleCloseLeaderboard = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
   const handleOpenAdmin = () => {
     navigate('/admin');
   };
@@ -521,6 +542,9 @@ export default function App() {
     } else if (returnTo === 'profile') {
       navigate('/profile');
       setToastMessage(`Selamat datang, ${name}! Membuka Edit Profil...`);
+    } else if (returnTo === 'rangking' || returnTo === 'leaderboard') {
+      navigate('/rangking');
+      setToastMessage(`Selamat datang, ${name}! Membuka Papan Peringkat...`);
     } else if (returnTo === 'upload' || pendingUploadTarget) {
       const target = pendingUploadTarget || (returnNim ? findStudentInList(students, returnNim) : null);
       setPendingUploadTarget(null);
@@ -825,6 +849,7 @@ export default function App() {
         onOpenLogin={handleOpenLogin}
         onOpenPremiumModal={handleOpenPricing}
         onOpenTracking={handleOpenTracking}
+        onOpenLeaderboard={handleOpenLeaderboard}
         onOpenAdmin={handleOpenAdmin}
         isLoginPage={location.pathname === '/login'}
         onContinueWithoutAccount={handleContinueWithoutAccount}
@@ -840,8 +865,9 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 w-full mx-auto max-w-6xl px-4 sm:px-6 py-4 sm:py-6 flex flex-col">
-        <AnimatePresence>
-          <Routes location={location}>
+        <ErrorBoundary>
+          <AnimatePresence>
+            <Routes location={location}>
             <Route
               path="/"
               element={
@@ -901,6 +927,11 @@ export default function App() {
                     if (returnTo === 'tracking') return <Navigate to="/tracking" replace />;
                     if (returnTo === 'pricing') return <Navigate to="/pricing" replace />;
                     if (returnTo === 'profile') return <Navigate to="/profile" replace />;
+                    if (returnTo === 'rangking' || returnTo === 'leaderboard') return <Navigate to="/rangking" replace />;
+                    if (returnTo === 'upload') {
+                      const nim = params.get('nim');
+                      if (nim) return <Navigate to={`/upload/${encodeURIComponent(nim)}`} replace />;
+                    }
                     if (returnTo && returnTo.startsWith('/')) return <Navigate to={returnTo} replace />;
                     return <Navigate to="/" replace />;
                   })()
@@ -989,15 +1020,91 @@ export default function App() {
                       onBack={handleCloseUploadPhoto}
                     />
                   </motion.div>
+                ) : !uploadTargetStudent ? (
+                  <motion.div
+                    key="upload-expired"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="max-w-md w-full mx-auto my-12 p-6 sm:p-8 bg-white border border-slate-200/90 rounded-3xl shadow-sm text-center space-y-4"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200/80 flex items-center justify-center mx-auto shadow-2xs">
+                      <AlertCircle className="w-7 h-7" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <h2 className="text-lg font-bold text-slate-900">
+                        Tautan Upload Kadaluarsa / Tidak Ditemukan
+                      </h2>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Sesi atau tautan upload untuk NIM{' '}
+                        <strong className="font-mono text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">
+                          {uploadParamNim || 'mahasiswa'}
+                        </strong>{' '}
+                        tidak ditemukan atau telah kadaluarsa. Silakan pilih kembali mahasiswa melalui beranda atau daftar tracking.
+                      </p>
+                    </div>
+                    <div className="pt-2 flex flex-col gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => navigate('/')}
+                        className="w-full inline-flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                      >
+                        <Home className="w-4 h-4" />
+                        <span>Kembali ke Beranda Utama</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/tracking')}
+                        className="w-full inline-flex items-center justify-center gap-2 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-98 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-slate-500" />
+                        <span>Buka Tracking Foto</span>
+                      </button>
+                    </div>
+                  </motion.div>
                 ) : (
-                  <Navigate
-                    to={
-                      uploadTargetStudent
-                        ? `/login?return=upload&nim=${encodeURIComponent(uploadTargetStudent.nim || uploadTargetStudent.id)}`
-                        : '/login'
-                    }
-                    replace
-                  />
+                  <motion.div
+                    key="upload-require-login"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="max-w-md w-full mx-auto my-12 p-6 sm:p-8 bg-white border border-slate-200/90 rounded-3xl shadow-sm text-center space-y-4"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200/80 flex items-center justify-center mx-auto shadow-2xs">
+                      <LogIn className="w-7 h-7" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <h2 className="text-lg font-bold text-slate-900">
+                        Sesi Masuk Diperlukan
+                      </h2>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Anda membuka tautan upload foto bersama dengan{' '}
+                        <strong className="text-slate-800 font-semibold">{uploadTargetStudent.namaLengkap}</strong>{' '}
+                        ({uploadTargetStudent.nim}). Silakan masuk dengan akun NIM Anda agar foto tersimpan rapi.
+                      </p>
+                    </div>
+                    <div className="pt-2 flex flex-col gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingUploadTarget(uploadTargetStudent);
+                          navigate(`/login?return=upload&nim=${encodeURIComponent(uploadTargetStudent.nim || uploadTargetStudent.id)}`);
+                        }}
+                        className="w-full inline-flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        <span>Masuk dengan Akun NIM Saya</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/')}
+                        className="w-full inline-flex items-center justify-center gap-2 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-98 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      >
+                        <Home className="w-4 h-4 text-slate-500" />
+                        <span>Kembali ke Beranda Utama</span>
+                      </button>
+                    </div>
+                  </motion.div>
                 )
               }
             />
@@ -1109,10 +1216,25 @@ export default function App() {
                 )
               }
             />
+            <Route
+              path="/rangking"
+              element={
+                <LeaderboardPage
+                  students={students}
+                  photoRecords={photoRecords}
+                  currentUser={currentUser}
+                  onBack={handleCloseLeaderboard}
+                  onRefresh={() => loadData({ force: true })}
+                  isLoading={isLoading}
+                />
+              }
+            />
+            <Route path="/leaderboard" element={<Navigate to="/rangking" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>
-      </main>
+      </ErrorBoundary>
+    </main>
 
       {/* Footer */}
       <footer className={`mt-auto border-t border-slate-200 bg-white/80 text-center text-xs text-slate-500 ${location.pathname === '/login' ? 'py-3' : 'py-5 sm:py-6'}`}>

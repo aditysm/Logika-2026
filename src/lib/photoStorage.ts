@@ -544,14 +544,18 @@ export function mergePhotoRecords(
 
 export function generateNextFileName(
   records: PhotoRecord[],
-  uploader: Mahasiswa,
-  target: Mahasiswa
+  uploader?: Mahasiswa | null,
+  target?: Mahasiswa | null
 ): { seq: number; fileName: string } {
+  if (!uploader || !target) {
+    return { seq: 1, fileName: '0_foto_bersama.jpg' };
+  }
+
   const targetNorm = normalizeNim(target.nim);
   const uploaderNorm = normalizeNim(uploader.nim);
 
   // Count existing photo upload records for the uploader
-  const uploaderPhotos = records.filter(
+  const uploaderPhotos = (records || []).filter(
     (r) =>
       (normalizeNim(r.uploaderNim) === uploaderNorm || normalizeNim(r.targetNim) === uploaderNorm) &&
       !(
@@ -561,13 +565,14 @@ export function generateNextFileName(
   );
 
   const seq = uploaderPhotos.length + 1;
-  const cleanNim = target.nim.replace(/[\/\s]/g, '-');
+  const cleanNim = (target.nim || 'unknown').replace(/[\/\s]/g, '-');
   
   // Extract group ID from kelompok string (e.g. "Kelompok 1" -> "1")
   const groupIdMatch = target.kelompok?.match(/\d+/);
   const groupId = groupIdMatch ? groupIdMatch[0] : '0';
+  const safeName = (target.namaLengkap || target.namaPanggilan || 'Mahasiswa').replace(/[\/\s_]/g, '_');
   
-  const fileName = `${groupId}_${target.namaLengkap}_${cleanNim}.jpg`;
+  const fileName = `${groupId}_${safeName}_${cleanNim}.jpg`;
 
   return { seq, fileName };
 }

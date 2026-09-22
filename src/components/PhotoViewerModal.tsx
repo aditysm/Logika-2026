@@ -1,4 +1,5 @@
-import { ExternalLink, Folder, X, Calendar, Users, Eye, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ExternalLink, Folder, X, Calendar, Users, Eye, ImageIcon, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
 import { formatIndonesianDate, normalizeNim } from '../lib/photoStorage';
@@ -12,26 +13,23 @@ interface PhotoViewerModalProps {
 }
 
 /**
- * Helper to resolve direct file view link on Google Drive
+ * Extract Google Drive file ID from record or URLs
  */
-function resolveDrivePhotoUrl(
+function extractDriveFileId(
   record: PhotoRecord,
-  activeStudent: Partial<Mahasiswa> | null,
   currentUser?: Mahasiswa | null
-): string {
+): string | null {
   const currentNim = currentUser?.nim ? normalizeNim(currentUser.nim) : '';
   const isUploader = currentNim && normalizeNim(record.uploaderNim) === currentNim;
 
-  // 1. Try direct Drive File ID
-  const preferredFileId = isUploader
+  const candidateId = isUploader
     ? record.driveFileIdA || record.driveFileIdB
     : record.driveFileIdB || record.driveFileIdA;
 
-  if (preferredFileId && !preferredFileId.startsWith('http') && preferredFileId.length > 5) {
-    return `https://drive.google.com/file/d/${preferredFileId}/view?usp=sharing`;
+  if (candidateId && !candidateId.startsWith('http') && candidateId.length > 5) {
+    return candidateId;
   }
 
-  // 2. Try raw URLs if they contain drive link
   const candidateUrls = [
     isUploader ? record.photoUrlA : record.photoUrlB,
     record.photoUrl,
@@ -42,13 +40,28 @@ function resolveDrivePhotoUrl(
     if (rawUrl.includes('drive.google.com')) {
       const match = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || rawUrl.match(/id=([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {
-        return `https://drive.google.com/file/d/${match[1]}/view?usp=sharing`;
+        return match[1];
       }
-      return rawUrl;
     }
   }
 
-  // 3. Fallback to Student's Drive folder or Uploader's Drive folder
+  return null;
+}
+
+/**
+ * Helper to resolve direct file view link on Google Drive
+ */
+function resolveDrivePhotoUrl(
+  record: PhotoRecord,
+  activeStudent: Partial<Mahasiswa> | null,
+  currentUser?: Mahasiswa | null
+): string {
+  const fileId = extractDriveFileId(record, currentUser);
+  if (fileId) {
+    return `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+  }
+
+  // Fallback to student or uploader drive folder
   if (activeStudent?.driveFolderUrl) return activeStudent.driveFolderUrl;
   if (record.driveFolderUrl) return record.driveFolderUrl;
   if (currentUser?.driveFolderUrl) return currentUser.driveFolderUrl;
@@ -62,17 +75,29 @@ export function PhotoViewerModal({
   allStudents = [],
   onClose,
 }: PhotoViewerModalProps) {
+  const [imgLoadError, setImgLoadError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   if (!photoRecord) return null;
 
-  // Tentukan mahasiswa saat ini yang sedang dilihat / difoto bersama
+  // Resolve target student details
   let activeStudent: Partial<Mahasiswa> | null = targetStudent || null;
 
   if (!activeStudent) {
     const currentNim = currentUser?.nim ? normalizeNim(currentUser.nim) : '';
-    const isCurrentUploader = currentNim && normalizeNim(photoRecord.uploaderNim) === currentNim;
     const isCurrentTarget = currentNim && normalizeNim(photoRecord.targetNim) === currentNim;
 
-    // Rekan mahasiswa: jika login sebagai uploader -> target, jika login sebagai target -> uploader
     const partnerNim = isCurrentTarget ? photoRecord.uploaderNim : photoRecord.targetNim;
     const partnerNama = isCurrentTarget ? photoRecord.uploaderNama : photoRecord.targetNama;
 
@@ -96,49 +121,56 @@ export function PhotoViewerModal({
   const displayNim = activeStudent?.nim || photoRecord.targetNim || '';
   const displayKelompok = activeStudent?.kelompok || photoRecord.targetKelompok || '-';
 
-  // Khusus di web: format nama berkas dengan Nama dan NIM mahasiswa saat ini
+  // Format filename for reference
   const cleanNamaForFile = displayNama.trim().replace(/\s+/g, '_');
   const cleanNimForFile = displayNim.trim().replace(/[\/\s]/g, '-');
   const webFileName = `${cleanNamaForFile}_${cleanNimForFile}.jpg`;
 
-  // URL langsung ke file foto di Google Drive
   const directPhotoDriveUrl = resolveDrivePhotoUrl(photoRecord, activeStudent, currentUser);
+  const driveFileId = extractDriveFileId(photoRecord, currentUser);
+
   const folderDriveUrl =
     activeStudent?.driveFolderUrl ||
     photoRecord.driveFolderUrl ||
     currentUser?.driveFolderUrl;
 
-  // Cek apakah ada data image lokal murni (misal baru diambil via kamera di session ini)
   const isLocalDataImage =
     photoRecord.photoUrl &&
     photoRecord.photoUrl.startsWith('data:image/') &&
     !photoRecord.photoUrl.includes('drive.google.com');
 
+  // Candidate image src: local base64 or Drive thumbnail
+  const candidateImgSrc = isLocalDataImage
+    ? photoRecord.photoUrl
+    : driveFileId
+    ? `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w800`
+    : null;
+
+  const canShowImage = Boolean(candidateImgSrc && !imgLoadError);
+
   return (
     <AnimatePresence>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm overflow-y-auto"
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
         onClick={onClose}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
+          initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.98 }}
+          exit={{ opacity: 0, scale: 0.96 }}
           transition={{ duration: 0.15 }}
-          className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200 relative my-auto"
+          className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col my-auto relative"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="shrink-0 flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-slate-50/90 z-10">
-            <div className="min-w-0 pr-3">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-0.5 rounded-full inline-block">
-                  Lampiran Foto Bersama
+          {/* Header Minimalis */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white">
+            <div className="min-w-0 pr-2">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-0.5">
+                <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md text-[11px]">
+                  Foto Bersama
                 </span>
-                {displayNim && (
-                  <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                    {displayNim}
-                  </span>
+                {displayKelompok && (
+                  <span className="text-[11px] text-slate-400">· {displayKelompok}</span>
                 )}
               </div>
               <h3 className="text-base font-bold text-slate-900 truncate">
@@ -148,136 +180,123 @@ export function PhotoViewerModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors shrink-0 cursor-pointer"
-              title="Tutup Pratinjau"
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 transition-colors cursor-pointer shrink-0"
+              title="Tutup (Esc)"
+              aria-label="Tutup"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Body Content - Scrollable */}
-          <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
-            {/* Action Box: Karena foto di Drive tidak bisa dirender preview <img> biasa, sediakan tautan langsung */}
-            {isLocalDataImage ? (
-              <div className="rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 flex items-center justify-center min-h-[180px] max-h-[350px]">
+          {/* Area Foto Minimalis */}
+          <div className="p-5 space-y-4">
+            {canShowImage ? (
+              <div className="relative rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 min-h-[200px] max-h-[320px] flex items-center justify-center">
+                {!imgLoaded && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-100 text-slate-400">
+                    <span className="w-6 h-6 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin" />
+                  </div>
+                )}
                 <img
-                  src={photoRecord.photoUrl}
+                  src={candidateImgSrc!}
                   alt={`Foto bersama ${displayNama}`}
-                  className="w-full h-auto max-h-[350px] object-contain"
+                  onLoad={() => setImgLoaded(true)}
+                  onError={() => setImgLoadError(true)}
+                  className={`w-full h-auto max-h-[320px] object-contain transition-opacity duration-200 ${
+                    imgLoaded ? 'opacity-100' : 'opacity-0'
+                  }`}
                 />
               </div>
             ) : (
-              <div className="rounded-2xl p-6 sm:p-7 bg-gradient-to-b from-slate-900 to-slate-950 text-white border border-slate-800 shadow-inner flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-lg">
-                  <Folder className="w-8 h-8 text-amber-400" />
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/90 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
+                  <ImageIcon className="w-6 h-6" />
                 </div>
-
-                <div className="space-y-1.5 max-w-sm">
-                  <h4 className="text-base font-bold text-slate-100">
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-800">
                     Foto Tersimpan di Google Drive
-                  </h4>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Berkas foto dokumentasi tersimpan aman di Google Drive. Klik tombol di bawah untuk membuka dan melihat foto secara langsung.
                   </p>
-                </div>
-
-                <a
-                  href={directPhotoDriveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs sm:text-sm text-slate-950 bg-amber-400 hover:bg-amber-300 active:scale-[0.98] transition-all shadow-md cursor-pointer"
-                >
-                  <Eye className="w-4 h-4 text-slate-950" />
-                  <span>Buka Foto di Drive untuk Melihat</span>
-                  <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                </a>
-
-                <div className="pt-1 flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
-                  <span>Nama Berkas di Web:</span>
-                  <span className="text-blue-300 bg-blue-950/60 px-2 py-0.5 rounded border border-blue-800/40 break-all select-all">
-                    {webFileName}
-                  </span>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    Klik tombol di bawah untuk melihat atau mengunduh berkas foto asli di Google Drive.
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Metadata Summary Card */}
-            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5 text-xs text-slate-600">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                <span className="text-slate-500 font-medium">Nama Mahasiswa:</span>
-                <span className="font-bold text-slate-800 text-right">{displayNama}</span>
+            {/* Tombol Aksi Utama: Buka Foto di Drive */}
+            <a
+              href={directPhotoDriveUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-2xl text-sm font-bold shadow-xs transition-all cursor-pointer"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Buka Foto di Google Drive</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+            </a>
+
+            {/* Rincian Ringkas Minimalis */}
+            <div className="bg-slate-50/70 border border-slate-200/70 rounded-2xl p-3.5 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-slate-600">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <Users className="w-3.5 h-3.5" />
+                  NIM:
+                </span>
+                <span className="font-mono font-semibold text-slate-800">{displayNim || '-'}</span>
               </div>
 
-              {displayNim && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <span className="text-slate-500 font-medium">NIM:</span>
-                  <span className="font-mono font-bold text-slate-800 text-right">{displayNim}</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-200/60">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Tercatat:
+                </span>
+                <span className="font-medium text-slate-700">
+                  {formatIndonesianDate(photoRecord.timestamp)}
+                </span>
+              </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1 border-t border-slate-200/60">
-                <span className="text-slate-500 font-medium">Nama Berkas:</span>
-                <code className="font-mono font-semibold text-blue-800 text-[11px] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 break-all select-all">
+              <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-200/60">
+                <span className="text-slate-400">Berkas:</span>
+                <code className="text-[11px] font-mono text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200 max-w-[200px] truncate select-all">
                   {webFileName}
                 </code>
               </div>
 
-              <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
-                <span className="text-slate-400 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" />
-                  Waktu Tercatat:
-                </span>
-                <span className="font-medium text-slate-700">{formatIndonesianDate(photoRecord.timestamp)}</span>
-              </div>
-
-              {displayKelompok && (
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5" />
-                    Kelompok:
-                  </span>
-                  <span className="font-medium text-slate-700">{displayKelompok}</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between text-emerald-700 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-100 mt-1">
-                <span className="flex items-center gap-1.5 font-bold text-[11px]">
+              <div className="flex items-center justify-between text-emerald-700 pt-1 border-t border-slate-200/60 font-semibold text-[11px]">
+                <span className="flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  Status Verifikasi Tugas
+                  Status Foto:
                 </span>
-                <span className="font-black text-[11px]">Sudah Terekam</span>
+                <span>Sudah Terekam</span>
               </div>
             </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className="shrink-0 p-4 sm:p-5 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-2.5 z-10">
+          {/* Footer Navigasi Minimalis */}
+          <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
             {folderDriveUrl ? (
               <a
                 href={folderDriveUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 font-semibold rounded-xl text-xs transition-colors w-full sm:w-auto"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors cursor-pointer"
                 title="Buka Folder Google Drive Mahasiswa"
               >
-                <Folder className="w-4 h-4 text-amber-600" />
-                <span>Buka Folder Drive</span>
-                <ExternalLink className="w-3.5 h-3.5 text-amber-600" />
+                <Folder className="w-3.5 h-3.5 text-amber-500" />
+                <span>Buka Folder</span>
+                <ExternalLink className="w-3 h-3 text-slate-400" />
               </a>
             ) : (
-              <div />
+              <span />
             )}
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-200 hover:bg-slate-300 active:scale-[0.98] text-slate-800 font-semibold rounded-xl text-xs transition-all w-full sm:w-auto cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-                <span>Tutup</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+            >
+              Tutup
+            </button>
           </div>
         </motion.div>
       </div>

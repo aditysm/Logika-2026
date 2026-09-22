@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck, CheckCircle2, ArrowRight, Database } from 'lucide-react';
+import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck, CheckCircle2, ArrowRight, Database, Trophy } from 'lucide-react';
 import { ConnectionStatus, Mahasiswa } from '../types';
 
 interface NavbarProps {
@@ -16,6 +16,7 @@ interface NavbarProps {
   onOpenLogin?: () => void;
   onOpenPremiumModal?: () => void;
   onOpenTracking?: () => void;
+  onOpenLeaderboard?: () => void;
   onOpenAdmin?: () => void;
   isLoginPage?: boolean;
   onContinueWithoutAccount?: () => void;
@@ -33,6 +34,7 @@ export function Navbar({
   onOpenLogin,
   onOpenPremiumModal,
   onOpenTracking,
+  onOpenLeaderboard,
   onOpenAdmin,
   isLoginPage,
   onContinueWithoutAccount,
@@ -222,6 +224,25 @@ export function Navbar({
                             </div>
                           </button>
                         )}
+
+                        <button
+                          id="menu-btn-rangking"
+                          type="button"
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            onOpenLeaderboard?.();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-amber-800 hover:bg-amber-50 rounded-xl transition-colors text-left cursor-pointer"
+                          role="menuitem"
+                        >
+                          <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span>Rangking &amp; Top Score</span>
+                            <p className="text-[10px] font-normal text-slate-400 truncate">
+                              Podium &amp; kecepatan upload harian
+                            </p>
+                          </div>
+                        </button>
 
                         <button
                           id="menu-btn-tracking-foto"
