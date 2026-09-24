@@ -9,14 +9,34 @@
     <meta property="og:description" content="Aplikasi portal dan sistem penugasan Know Each Other mahasiswa Logika 2026 dengan pelacakan foto bersama dan Google Drive." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <link rel="alternate icon" href="./favicon.svg" />
-    <link rel="apple-touch-icon" href="./favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="./assets/index-C6-r-iRH.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-Dm5Et8Ub.css">
+    <script>
+      // Restore SPA deep-links (e.g. /mhs/F1D02610111#laporan or /rangking) if redirected via 404 fallback
+      (function() {
+        try {
+          var redirect = sessionStorage.getItem('spa_redirect');
+          if (redirect) {
+            sessionStorage.removeItem('spa_redirect');
+            if (redirect !== (window.location.pathname + window.location.search + window.location.hash)) {
+              window.history.replaceState(null, null, redirect);
+            }
+          } else {
+            var params = new URLSearchParams(window.location.search);
+            var qRedirect = params.get('redirect');
+            if (qRedirect) {
+              window.history.replaceState(null, null, qRedirect);
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-DKoNNQ5w.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Bnpp5vuZ.css">
   </head>
   <body class="font-['Plus_Jakarta_Sans',sans-serif] bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white min-h-screen">
     <div id="root"></div>
