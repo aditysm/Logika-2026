@@ -31,6 +31,7 @@ interface MainListViewProps {
   handleOpenUploadPhoto: (student: Mahasiswa) => void;
   handleOpenPricing: () => void;
   handleGenerateReport: () => void;
+  handleGoToReport?: () => void;
   handleFilterPhotoStatusChange: (status: 'ALL' | 'BELUM' | 'SUDAH') => void;
   loadData: () => void;
   hasTakenPhoto: (records: PhotoRecord[], uploaderNim: string, targetNim: string) => boolean;
@@ -62,6 +63,7 @@ export function MainListView({
   handleOpenUploadPhoto,
   handleOpenPricing,
   handleGenerateReport,
+  handleGoToReport,
   handleFilterPhotoStatusChange,
   loadData,
   hasTakenPhoto,
@@ -81,6 +83,7 @@ export function MainListView({
           onFilterPhotoStatusChange={handleFilterPhotoStatusChange}
           onOpenPremiumModal={handleOpenPricing}
           onGenerateReport={handleGenerateReport}
+          onGoToReport={handleGoToReport}
         />
       )}
 

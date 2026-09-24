@@ -211,7 +211,7 @@ const TABLES: TableMeta[] = [
   {
     name: 'report_requests',
     label: 'report_requests',
-    description: 'Daftar permintaan pembuatan dan pengunduhan berkas PDF',
+    description: 'Daftar permintaan pembuatan dan pengunduhan berkas laporan Word (.docx)',
     primaryKey: 'id',
     icon: FileText,
     columns: [

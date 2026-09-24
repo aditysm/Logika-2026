@@ -1,4 +1,4 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, useMemo, FormEvent } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   ArrowLeft,
@@ -44,7 +44,7 @@ import {
   fetchPhotoTrackingFromSupabase,
   upsertPhotoTrackingInSupabase 
 } from '../lib/supabase';
-import { formatIndonesianDate, hasTakenPhoto } from '../lib/photoStorage';
+import { formatIndonesianDate, hasTakenPhoto, normalizeNim, getTakenNimSet } from '../lib/photoStorage';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { ReportSection } from './ReportSection';
 import { DEFAULT_DRIVE_FOLDER_URL } from '../lib/api';
@@ -175,22 +175,52 @@ export function StudentDetailView({
     window.scrollTo({ top: 0, behavior: 'instant' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
+
+    // Check if directed to report section (#laporan)
+    const scrollToReport = () => {
+      if (window.location.hash === '#laporan' || window.location.hash === '#section-document-report') {
+        const el = document.getElementById('section-document-report');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    };
+
+    if (window.location.hash === '#laporan' || window.location.hash === '#section-document-report') {
+      const timer = setTimeout(scrollToReport, 200);
+      window.addEventListener('hashchange', scrollToReport);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('hashchange', scrollToReport);
+      };
+    } else {
+      window.addEventListener('hashchange', scrollToReport);
+      return () => {
+        window.removeEventListener('hashchange', scrollToReport);
+      };
+    }
   }, [student.id]);
 
   // Load tracking status on mount, user/student change, or realtime refreshKey trigger
   useEffect(() => {
+    // If viewing own profile, skip tracking status load entirely to avoid lag
+    if (isOwnProfile || !userKey || !student.nim) return;
+
+    let isMounted = true;
     const loadTrackingStatus = async () => {
-      if (userKey && student.nim) {
-        setIsTrackingLoading(true);
-        const data = await fetchPhotoTrackingFromSupabase(userKey);
-        const cleanNim = student.nim.toLowerCase().replace(/[\/\s_-]/g, '');
-        const hasPhoto = hasTakenPhoto(photoRecords, userKey, student.nim);
-        setIsCheckedInTracking(Boolean(data[student.nim] || data[cleanNim] || data[student.nim.trim()] || hasPhoto));
-        setIsTrackingLoading(false);
-      }
+      setIsTrackingLoading(true);
+      const data = await fetchPhotoTrackingFromSupabase(userKey);
+      if (!isMounted) return;
+      const cleanNim = student.nim.toLowerCase().replace(/[\/\s_-]/g, '');
+      const hasPhoto = hasTakenPhoto(photoRecords, userKey, student.nim);
+      setIsCheckedInTracking(Boolean(data[student.nim] || data[cleanNim] || data[student.nim.trim()] || hasPhoto));
+      setIsTrackingLoading(false);
     };
     loadTrackingStatus();
-  }, [student.nim, userKey, refreshKey, photoRecords]);
+    return () => {
+      isMounted = false;
+    };
+  }, [student.nim, userKey, refreshKey, isOwnProfile]);
 
   // Find index for Prev / Next navigation
   const currentIndex = allStudents.findIndex((s) => s.id === student.id);
@@ -291,17 +321,24 @@ Alamat Email: ${student.email}`;
 
   const backButtonText = 'Kembali ke Menu Utama';
 
-  // Calculate personal progress when viewing own profile across total students (independent of group/search filter)
-  const masterStudentList =
-    totalStudents && totalStudents.length > 0 ? totalStudents : allStudents;
-  const myFriends = masterStudentList.filter(
-    (s) => s.nim && student.nim && s.nim.replace(/[\/\s]/g, '') !== student.nim.replace(/[\/\s]/g, '')
-  );
-  const myTotalFriends = myFriends.length;
-  const myTakenCount = myFriends.filter((friend) =>
-    hasTakenPhoto(photoRecords, student.nim, friend.nim)
-  ).length;
-  const myPercentage = myTotalFriends > 0 ? Math.round((myTakenCount / myTotalFriends) * 100) : 0;
+  // Calculate personal progress when viewing own profile across total students with useMemo and Set lookup
+  const { myFriends, myTotalFriends, myTakenCount, myPercentage } = useMemo(() => {
+    if (!isOwnProfile) {
+      return { myFriends: [], myTotalFriends: 0, myTakenCount: 0, myPercentage: 0 };
+    }
+    const masterList = totalStudents && totalStudents.length > 0 ? totalStudents : allStudents;
+    const currentNimNorm = normalizeNim(student.nim);
+    const friends = masterList.filter((s) => s.nim && normalizeNim(s.nim) !== currentNimNorm);
+    const takenSet = getTakenNimSet(photoRecords, student.nim);
+    let count = 0;
+    for (const f of friends) {
+      if (takenSet.has(normalizeNim(f.nim))) {
+        count++;
+      }
+    }
+    const pct = friends.length > 0 ? Math.round((count / friends.length) * 100) : 0;
+    return { myFriends: friends, myTotalFriends: friends.length, myTakenCount: count, myPercentage: pct };
+  }, [isOwnProfile, student.nim, totalStudents, allStudents, photoRecords]);
   const activeTier = currentUser?.tier || student.tier || 'free';
 
   return (
@@ -586,7 +623,7 @@ Alamat Email: ${student.email}`;
                   )}
                   {activeTier === 'pro' && (
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      <span>Anda menggunakan paket <strong>Pro</strong>. Akses pembuatan dokumen laporan PDF otomatis aktif.</span>
+                      <span>Anda menggunakan paket <strong>Pro</strong>. Akses pembuatan dokumen laporan Word (.docx) otomatis aktif.</span>
                     </p>
                   )}
                 </div>
@@ -599,14 +636,14 @@ Alamat Email: ${student.email}`;
                       onClick={onOpenPremiumModal}
                       className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl transition-all shadow-xs cursor-pointer"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-white" />
+                      <Crown className="w-3.5 h-3.5 text-white" />
                       <span>{activeTier === 'free' ? 'Pilih Paket Basic (Rp2.000)' : 'Upgrade ke Paket Pro (Rp5.000)'}</span>
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* Integrated Report Generation Section (Antrean PDF + Real-time Polling) */}
+              {/* Integrated Report Generation Section (Antrean Word + Real-time Polling & Tracking) */}
               <ReportSection
                 currentUser={currentUser}
                 allStudents={totalStudents && totalStudents.length > 0 ? totalStudents : allStudents}

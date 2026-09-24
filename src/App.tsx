@@ -689,25 +689,37 @@ export default function App() {
   const handleGenerateReport = async () => {
     if (!currentUser) return;
     try {
-      showToast('Menyiapkan dokumen Word (.docx) & mengeksekusi antrean ke Supabase...', 'info', 4000);
+      showToast('Mengajukan permohonan pembuatan dokumen laporan Word (.docx)...', 'info', 3000);
       
-      // Execute to Supabase report_requests queue
-      requestGenerateReport(
+      // Execute to backend report_requests queue (Google Apps Script / Supabase Worker)
+      const res = await requestGenerateReport(
         currentUser.nim,
         currentUser.namaLengkap,
         currentUser.driveFolderId
-      ).catch((e) => console.warn('Supabase report background request error:', e));
-
-      const targetFriends = students.filter(
-        (s) => currentUser && normalizeNim(s.nim) !== normalizeNim(currentUser.nim)
       );
-      await generateStudentReport(currentUser, targetFriends, photoRecords);
-      showToast('Dokumen Word (.docx) berhasil dibuat & dieksekusi ke Supabase!', 'success', 5000, 'Berhasil Dibuat');
+
+      if (res.success) {
+        showToast('Permintaan laporan Word berhasil diajukan dan sedang diproses sistem!', 'success', 5000, 'Permintaan Terkirim');
+      } else {
+        showToast(res.error || 'Gagal mengajukan antrean laporan.', 'error', 5000, 'Gagal');
+      }
     } catch (err: unknown) {
-      console.error('Error generating report:', err);
-      const msg = getIntuitiveErrorMessage(err, 'Gagal membuat berkas dokumen laporan.');
-      showToast(msg, 'error', 6000, 'Gagal Membuat Laporan');
+      console.error('Error generating report request:', err);
+      const msg = getIntuitiveErrorMessage(err, 'Gagal mengajukan berkas dokumen laporan.');
+      showToast(msg, 'error', 6000, 'Gagal Mengajukan Laporan');
     }
+  };
+
+  const handleGoToReport = () => {
+    if (!currentUser) return;
+    const cleanNim = currentUser.nim ? currentUser.nim.replace(/[\/\s]/g, '-') : currentUser.id;
+    navigate(`/mhs/${encodeURIComponent(cleanNim)}#laporan`);
+    setTimeout(() => {
+      const el = document.getElementById('section-document-report');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 250);
   };
 
   // Extract distinct groups for filtering (Kelompok 1 - 10)
@@ -929,6 +941,7 @@ export default function App() {
                     handleOpenUploadPhoto={handleOpenUploadPhoto}
                     handleOpenPricing={handleOpenPricing}
                     handleGenerateReport={handleGenerateReport}
+                    handleGoToReport={handleGoToReport}
                     handleFilterPhotoStatusChange={handleFilterPhotoStatusChange}
                     loadData={loadData}
                     hasTakenPhoto={fastHasTakenPhoto}

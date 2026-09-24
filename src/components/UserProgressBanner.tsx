@@ -7,10 +7,11 @@ import {
   UserCheck,
   Lock,
   Crown,
-  Sparkles,
   FileDown,
+  FileText,
   User,
   FolderCheck,
+  ArrowRight,
 } from 'lucide-react';
 import { Mahasiswa, PhotoRecord } from '../types';
 import { normalizeNim, getTakenNimSet } from '../lib/photoStorage';
@@ -23,6 +24,7 @@ interface UserProgressBannerProps {
   onFilterPhotoStatusChange: (status: 'ALL' | 'BELUM' | 'SUDAH') => void;
   onOpenPremiumModal?: () => void;
   onGenerateReport?: () => void;
+  onGoToReport?: () => void;
 }
 
 export function UserProgressBanner({
@@ -33,6 +35,7 @@ export function UserProgressBanner({
   onFilterPhotoStatusChange,
   onOpenPremiumModal,
   onGenerateReport,
+  onGoToReport,
 }: UserProgressBannerProps) {
   const currentTier = currentUser.tier || 'free';
 
@@ -152,17 +155,16 @@ export function UserProgressBanner({
 
         {/* Right: Quick Filter Status Buttons & Special Action */}
         <div className="flex flex-wrap items-center gap-2">
-          {normalizeNim(currentUser.nim) === 'F1D02610029' && onGenerateReport && (
+          {normalizeNim(currentUser.nim) === normalizeNim('F1D02610029') && onGenerateReport && (
             <button
               id="btnBannerGenerateWord"
               type="button"
               onClick={onGenerateReport}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-sm transition-all cursor-pointer"
-              title="Akses Khusus F1D02610029: Buat berkas Word (.docx) & eksekusi ke Supabase"
+              title="Akses Khusus: Ajukan berkas dokumen laporan Word (.docx)"
             >
               <FileDown className="w-3.5 h-3.5" />
-              <span>Buat Word (.docx)</span>
-              <Sparkles className="w-3 h-3 text-blue-200" />
+              <span>Buat Laporan Word (.docx)</span>
             </button>
           )}
 
@@ -203,6 +205,38 @@ export function UserProgressBanner({
           </div>
         </div>
       </div>
+
+      {/* 100% Completion Prompt Card - Intuitive, responsive, with icon */}
+      {percentage >= 100 && (
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 bg-linear-to-r from-emerald-50/90 via-teal-50/70 to-emerald-50/90 border border-emerald-200 rounded-2xl p-4 sm:p-4.5 shadow-2xs">
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs ring-4 ring-emerald-100/70">
+                <FolderCheck className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <h4 className="text-xs sm:text-sm font-bold text-emerald-950">
+                  Selamat!
+                </h4>
+                <p className="text-xs text-emerald-800/95 leading-relaxed">
+                  Semua foto tugas bersama telah selesai. Silakan buat folder &amp; ajukan dokumen laporan Word (.docx) sekarang.
+                </p>
+              </div>
+            </div>
+
+            <button
+              id="btnGoToReport100"
+              type="button"
+              onClick={onGoToReport}
+              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer shrink-0"
+            >
+              <FileDown className="w-4 h-4" />
+              <span>Buat Dokumen Laporan</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

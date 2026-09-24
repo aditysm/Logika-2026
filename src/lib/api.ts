@@ -630,7 +630,7 @@ export async function requestGenerateReport(
       if (!insertErr && inserted) {
         return {
           success: true,
-          message: 'Permintaan laporan Word berhasil dieksekusi dan disimpan di Supabase!',
+          message: 'Permintaan laporan Word berhasil dieksekusi dan disimpan di antrean sistem!',
           data: inserted as ReportRequest,
         };
       }
@@ -641,8 +641,35 @@ export async function requestGenerateReport(
 
   return {
     success: false,
-    error: 'Tidak dapat terhubung ke server antrean laporan Supabase. Silakan periksa koneksi Anda.',
+    error: 'Tidak dapat terhubung ke server antrean laporan. Silakan periksa koneksi Anda.',
   };
+}
+
+/**
+ * Fetch all report generation requests history for a student
+ */
+export async function fetchReportHistoryFromSupabase(userNim: string): Promise<ReportRequest[]> {
+  const cleanNim = (userNim || '').trim();
+  if (!cleanNim) return [];
+
+  try {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('report_requests')
+        .select('id, nim, nama_lengkap, drive_folder_id, status, pdf_url, error_message, created_at, updated_at')
+        .eq('nim', cleanNim)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        return data as ReportRequest[];
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching report history from Supabase:', err);
+  }
+
+  return [];
 }
 
 /**
@@ -659,12 +686,35 @@ export async function getReportStatus(userNim: string): Promise<{
     return { success: false, error: 'NIM wajib disertakan.' };
   }
 
+  // 1. Direct Database Query to 'report_requests' (Fastest and zero latency)
+  try {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data: latest, error } = await supabase
+        .from('report_requests')
+        .select('id, nim, status, pdf_url, error_message, created_at, updated_at')
+        .eq('nim', cleanNim)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && latest) {
+        return {
+          success: true,
+          data: latest as ReportRequest,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Direct report status DB error:', err);
+  }
+
+  // 2. Fallback to candidate Edge Function URLs if DB returned nothing or had an issue
   const headers: Record<string, string> = {
     Authorization: `Bearer ${SUPABASE_ANON_KEY_IN_CODE}`,
     apikey: SUPABASE_ANON_KEY_IN_CODE,
   };
 
-  // 1. Try candidate Edge Function URLs
   for (const baseUrl of EDGE_FUNCTION_CANDIDATE_URLS) {
     try {
       const response = await fetch(`${baseUrl}/report-status?nim=${encodeURIComponent(cleanNim)}`, {
@@ -682,40 +732,17 @@ export async function getReportStatus(userNim: string): Promise<{
         }
       }
     } catch {
-      // Continue to next URL candidate or direct DB
+      // Continue
     }
-  }
-
-  // 2. Direct Database Fallback to 'report_requests'
-  try {
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      const { data: latest, error } = await supabase
-        .from('report_requests')
-        .select('id, nim, status, pdf_url, error_message, created_at, updated_at')
-        .eq('nim', cleanNim)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!error) {
-        return {
-          success: true,
-          data: (latest as ReportRequest) || {
-            nim: cleanNim,
-            status: 'none',
-            message: 'Belum ada riwayat permintaan pembuatan laporan.',
-          },
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('Fallback report status DB error:', err);
   }
 
   return {
-    success: false,
-    error: 'Gagal memeriksa status laporan.',
+    success: true,
+    data: {
+      nim: cleanNim,
+      status: 'none',
+      message: 'Belum ada riwayat permintaan pembuatan laporan.',
+    },
   };
 }
 
