@@ -189,14 +189,14 @@ export default function App() {
 
   // Derived state from URL
   const selectedStudent = useMemo(() => {
-    const match = location.pathname.match(/^\/mhs\/([^/]+)$/);
+    const match = location.pathname.match(/^\/mhs\/([^/]+)\/?$/);
     if (!match) return null;
     const nim = decodeURIComponent(match[1]);
     return findStudentInList(students, nim);
   }, [location.pathname, students]);
 
   const uploadParamNim = useMemo(() => {
-    const match = location.pathname.match(/^\/upload\/([^/]+)$/);
+    const match = location.pathname.match(/^\/upload\/([^/]+)\/?$/);
     if (!match) return null;
     return decodeURIComponent(match[1]);
   }, [location.pathname]);
@@ -236,8 +236,14 @@ export default function App() {
     const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
     if (rawHash) {
       if (rawHash.startsWith('mhs=')) {
-        const nim = rawHash.replace('mhs=', '');
+        const queryPart = rawHash.replace('mhs=', '');
+        const [nim, subHash] = queryPart.split(/[#&]hash=/);
         navigate(`/mhs/${nim}`, { replace: true });
+        if (subHash) {
+          setTimeout(() => {
+            window.location.hash = '#' + subHash;
+          }, 50);
+        }
       } else if (rawHash.startsWith('upload=')) {
         const nim = rawHash.replace('upload=', '');
         navigate(`/upload/${nim}`, { replace: true });
@@ -1267,6 +1273,12 @@ export default function App() {
               }
             />
             <Route path="/leaderboard" element={<Navigate to="/rangking" replace />} />
+            <Route path="/leaderboard/" element={<Navigate to="/rangking" replace />} />
+            <Route path="/rangking/" element={<Navigate to="/rangking" replace />} />
+            <Route path="/pricing/" element={<Navigate to="/pricing" replace />} />
+            <Route path="/tracking/" element={<Navigate to="/tracking" replace />} />
+            <Route path="/profile/" element={<Navigate to="/profile" replace />} />
+            <Route path="/login/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>

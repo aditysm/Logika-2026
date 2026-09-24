@@ -5,33 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Logika 2026</title>
     <script>
-      // Single Page App redirect script for GitHub Pages
-      // Keeps deep links, subpaths, and query strings intact
+      // Single Page App redirect script for GitHub Pages / static CDN hosting
+      // Preserves deep links, subpaths, hash tags (#laporan), and query parameters
       (function() {
         var path = window.location.pathname;
         var search = window.location.search;
         var hash = window.location.hash;
+        var fullTarget = path + search + hash;
 
-        // If visiting /mhs/:id
-        var mhsMatch = path.match(/\/mhs\/([^/?#]+)/i);
-        if (mhsMatch && mhsMatch[1]) {
-          window.location.replace('/#mhs=' + encodeURIComponent(mhsMatch[1]));
-          return;
-        }
+        try {
+          sessionStorage.setItem('spa_redirect', fullTarget);
+        } catch (e) {}
 
-        // Generic fallback to root with preserved path
-        var cleanPath = path.replace(/^\//, '').replace(/\/$/, '');
-        if (cleanPath) {
-          window.location.replace('/#' + cleanPath + (search || '') + (hash || ''));
-        } else {
-          window.location.replace('/' + (search || '') + (hash || ''));
-        }
+        // Fallback using redirect query param so BrowserRouter/index.html can restore it
+        window.location.replace('/?redirect=' + encodeURIComponent(fullTarget));
       })();
     </script>
   </head>
-  <body style="font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f8fafc; color: #334155;">
-    <div style="text-align: center;">
-      <p style="font-size: 1rem; font-weight: 500;">Memuat profil mahasiswa Logika 2026...</p>
+  <body style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f8fafc; color: #334155;">
+    <div style="text-align: center; padding: 20px;">
+      <div style="width: 32px; height: 32px; border: 3px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px auto;"></div>
+      <p style="font-size: 0.95rem; font-weight: 600; color: #1e293b; margin: 0;">Mengarahkan ke Logika 2026...</p>
+      <p style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">Memuat halaman yang dituju...</p>
     </div>
+    <style>
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
   </body>
 </html>
