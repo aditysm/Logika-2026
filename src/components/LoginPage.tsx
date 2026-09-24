@@ -147,12 +147,7 @@ export function LoginPage({
           )}
         </AnimatePresence>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.15 }}
-          className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-xs"
-        >
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-xs">
           {/* If redirected from Upload Photo button */}
           {targetStudentForUpload ? (
             <div className="mb-4 p-3 rounded-2xl bg-blue-50/80 border border-blue-200/80 text-xs text-blue-900 flex items-start gap-2.5">
@@ -367,7 +362,7 @@ export function LoginPage({
               <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
             </button>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Identity Confirmation Modal */}

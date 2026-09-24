@@ -296,13 +296,7 @@ export function UploadPhotoPage({
   const isFormValid = Boolean(photoPreview);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="w-full max-w-2xl mx-auto space-y-6 pb-12"
-    >
+    <div className="w-full max-w-2xl mx-auto space-y-6 pb-12">
       {/* Top Navigation & Breadcrumb */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-200">
         <button
@@ -724,6 +718,6 @@ export function UploadPhotoPage({
           </div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

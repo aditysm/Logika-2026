@@ -342,13 +342,7 @@ Alamat Email: ${student.email}`;
   const activeTier = currentUser?.tier || student.tier || 'free';
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="w-full space-y-6"
-    >
+    <div className="w-full space-y-6">
       {/* Top Action & Breadcrumb Bar */}
       <div className="flex items-center justify-between pb-1">
         <button
@@ -1198,7 +1192,7 @@ Alamat Email: ${student.email}`;
           </div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
 

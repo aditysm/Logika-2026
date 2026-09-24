@@ -908,8 +908,7 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 w-full mx-auto max-w-6xl px-4 sm:px-6 py-4 sm:py-6 flex flex-col">
         <ErrorBoundary>
-          <AnimatePresence>
-            <Routes location={location}>
+          <Routes>
             <Route
               path="/"
               element={
@@ -979,13 +978,7 @@ export default function App() {
                     return <Navigate to="/" replace />;
                   })()
                 ) : (
-                  <motion.div
-                    key="login"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
+                  <div className="w-full">
                     <LoginPage
                       onLogin={handleLoginNim}
                       onContinueWithoutAccount={handleContinueWithoutAccount}
@@ -993,7 +986,7 @@ export default function App() {
                       isLoading={isLoading}
                       targetStudentForUpload={pendingUploadTarget}
                     />
-                  </motion.div>
+                  </div>
                 )
               }
             />
@@ -1001,13 +994,7 @@ export default function App() {
               path="/mhs/:nim"
               element={
                 selectedStudent ? (
-                  <motion.div
-                    key={`detail-${selectedStudent.id}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
+                  <div className="w-full">
                     <StudentDetailView
                       student={selectedStudent}
                       allStudents={sortedStudents}
@@ -1028,7 +1015,7 @@ export default function App() {
                       onOpenPremiumModal={handleOpenPricing}
                       onGenerateReport={handleGenerateReport}
                     />
-                  </motion.div>
+                  </div>
                 ) : isLoading ? (
                   <div className="flex flex-col items-center justify-center py-24 gap-3">
                     <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
@@ -1048,13 +1035,7 @@ export default function App() {
                     <p className="text-xs text-slate-500 font-medium">Memuat data...</p>
                   </div>
                 ) : currentUser && uploadTargetStudent ? (
-                  <motion.div
-                    key={`upload-photo-${uploadTargetStudent.id}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
+                  <div className="w-full">
                     <UploadPhotoPage
                       currentUser={currentUser}
                       targetStudent={uploadTargetStudent}
@@ -1062,15 +1043,9 @@ export default function App() {
                       onSavePhoto={handleSavePhoto}
                       onBack={handleCloseUploadPhoto}
                     />
-                  </motion.div>
+                  </div>
                 ) : !uploadTargetStudent ? (
-                  <motion.div
-                    key="upload-expired"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="max-w-md w-full mx-auto my-12 p-6 sm:p-8 bg-white border border-slate-200/90 rounded-3xl shadow-sm text-center space-y-4"
-                  >
+                  <div className="max-w-md w-full mx-auto my-12 p-6 sm:p-8 bg-white border border-slate-200/90 rounded-3xl shadow-sm text-center space-y-4">
                     <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200/80 flex items-center justify-center mx-auto shadow-2xs">
                       <AlertCircle className="w-7 h-7" />
                     </div>
@@ -1104,16 +1079,10 @@ export default function App() {
                         <span>Buka Tracking Foto</span>
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 ) : (
-                  <motion.div
-                    key="upload-require-login"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="max-w-md w-full mx-auto my-12 p-6 sm:p-8 bg-white border border-slate-200/90 rounded-3xl shadow-sm text-center space-y-4"
-                  >
-                    <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200/80 flex items-center justify-center mx-auto shadow-2xs">
+                  <div className="max-w-md w-full mx-auto my-12 p-6 sm:p-8 bg-white border border-slate-200/90 rounded-3xl shadow-sm text-center space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center mx-auto shadow-2xs">
                       <LogIn className="w-7 h-7" />
                     </div>
                     <div className="space-y-1.5">
@@ -1147,7 +1116,7 @@ export default function App() {
                         <span>Kembali ke Beranda Utama</span>
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 )
               }
             />
@@ -1160,20 +1129,14 @@ export default function App() {
                     <p className="text-xs text-slate-500 font-medium">Memuat profil akun...</p>
                   </div>
                 ) : currentUser ? (
-                  <motion.div
-                    key="edit-profile"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
+                  <div className="w-full">
                     <EditProfilePage
                       currentUser={currentUser}
                       groups={groups}
                       onSaveProfile={handleSaveProfile}
                       onBack={handleCloseEditProfile}
                     />
-                  </motion.div>
+                  </div>
                 ) : (
                   <Navigate to="/login?return=profile" replace />
                 )
@@ -1188,20 +1151,14 @@ export default function App() {
                     <p className="text-xs text-slate-500 font-medium">Memuat akses premium...</p>
                   </div>
                 ) : currentUser ? (
-                  <motion.div
-                    key="pricing-page"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
+                  <div className="w-full">
                     <PricingPage
                       currentUser={currentUser}
                       refreshKey={refreshKey}
                       onBack={handleClosePricing}
                       onRefreshProfileStatus={() => loadData({ force: true })}
                     />
-                  </motion.div>
+                  </div>
                 ) : (
                   <Navigate to="/login?return=pricing" replace />
                 )
@@ -1216,13 +1173,7 @@ export default function App() {
                     <p className="text-xs text-slate-500 font-medium">Memuat data tracking foto...</p>
                   </div>
                 ) : currentUser ? (
-                  <motion.div
-                    key="tracking-page"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
+                  <div className="w-full">
                     <TrackingPage
                       currentUser={currentUser}
                       students={students}
@@ -1231,7 +1182,7 @@ export default function App() {
                       onBack={handleCloseTracking}
                       onSelectStudent={handleSelectStudent}
                     />
-                  </motion.div>
+                  </div>
                 ) : (
                   <Navigate to="/login?return=tracking" replace />
                 )
@@ -1241,19 +1192,13 @@ export default function App() {
               path="/admin"
               element={
                 currentUser?.nim?.trim().toUpperCase().replace(/[\/\s_-]/g, '') === 'F1D02610029' ? (
-                  <motion.div
-                    key="admin-page"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
+                  <div className="w-full">
                     <AdminModePage
                       currentUser={currentUser}
                       onBack={handleCloseAdmin}
                       onDataChanged={() => loadData({ force: true })}
                     />
-                  </motion.div>
+                  </div>
                 ) : (
                   <Navigate to="/" replace />
                 )
@@ -1273,16 +1218,9 @@ export default function App() {
               }
             />
             <Route path="/leaderboard" element={<Navigate to="/rangking" replace />} />
-            <Route path="/leaderboard/" element={<Navigate to="/rangking" replace />} />
-            <Route path="/rangking/" element={<Navigate to="/rangking" replace />} />
-            <Route path="/pricing/" element={<Navigate to="/pricing" replace />} />
-            <Route path="/tracking/" element={<Navigate to="/tracking" replace />} />
-            <Route path="/profile/" element={<Navigate to="/profile" replace />} />
-            <Route path="/login/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </AnimatePresence>
-      </ErrorBoundary>
+        </ErrorBoundary>
     </main>
 
       {/* Footer */}
