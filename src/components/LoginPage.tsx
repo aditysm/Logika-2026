@@ -1,7 +1,7 @@
 import { useState, useMemo, FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, Database, KeyRound, Loader2, LogIn, Search, ShieldAlert, ShieldCheck, Sparkles, UserCheck, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, KeyRound, Loader2, LogIn, Search, ShieldAlert, ShieldCheck, Sparkles, UserCheck, X } from 'lucide-react';
 import { Mahasiswa } from '../types';
 import { findStudentInList } from '../lib/photoStorage';
 

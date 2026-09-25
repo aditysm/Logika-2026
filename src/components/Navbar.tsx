@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, Lock, FolderCheck, CheckCircle2, ArrowRight, Database, Trophy } from 'lucide-react';
-import { ConnectionStatus, Mahasiswa } from '../types';
+import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, FolderCheck, CheckCircle2, ArrowRight, ShieldCheck, Trophy } from 'lucide-react';
+import { Mahasiswa } from '../types';
 
 interface NavbarProps {
-  connectionStatus?: ConnectionStatus;
-  onOpenSettings?: () => void;
   onRefresh: () => void;
   isLoading: boolean;
   totalStudents: number;
@@ -23,8 +21,6 @@ interface NavbarProps {
 }
 
 export function Navbar({
-  connectionStatus,
-  onOpenSettings,
   onRefresh,
   isLoading,
   totalStudents,
@@ -217,11 +213,11 @@ export function Navbar({
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors text-left cursor-pointer"
                             role="menuitem"
                           >
-                            <Database className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                             <div className="flex-1 min-w-0">
                               <span>Mode Admin</span>
                               <p className="text-[10px] font-normal text-slate-400 truncate">
-                                Kelola tabel database Supabase
+                                Kelola data &amp; rekap admin
                               </p>
                             </div>
                           </button>
@@ -261,24 +257,6 @@ export function Navbar({
                             <span>Tracking Foto</span>
                             <p className="text-[10px] font-normal text-slate-400 truncate">
                               Checklist progres foto bersama
-                            </p>
-                          </div>
-                        </button>
-
-                        <button
-                          id="menu-btn-config-database"
-                          type="button"
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            onOpenSettings?.();
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-blue-700 hover:bg-blue-50/50 rounded-xl transition-colors text-left cursor-pointer"
-                        >
-                          <Database className="w-4 h-4 text-blue-500 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <span>Atur Supabase Key</span>
-                            <p className="text-[10px] font-normal text-slate-400 truncate">
-                              Ubah Anon Key &amp; koneksi Supabase
                             </p>
                           </div>
                         </button>
@@ -324,29 +302,17 @@ export function Navbar({
                   )}
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 ml-1">
-                  <button
-                    id="btn-navbar-config-db"
-                    type="button"
-                    onClick={onOpenSettings}
-                    className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                    title="Atur Supabase Key"
-                  >
-                    <Database className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    id="btn-navbar-login"
-                    type="button"
-                    disabled={isLoading}
-                    onClick={onOpenLogin}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Masuk Akun Mahasiswa"
-                  >
-                    <LogIn className="w-3.5 h-3.5" />
-                    <span>Login</span>
-                  </button>
-                </div>
+                <button
+                  id="btn-navbar-login"
+                  type="button"
+                  disabled={isLoading}
+                  onClick={onOpenLogin}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all shadow-xs ml-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Masuk Akun Mahasiswa"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Login</span>
+                </button>
               )}
             </>
           )}
