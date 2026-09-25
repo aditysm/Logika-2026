@@ -23,7 +23,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
 import { compressImageFile, generateNextFileName, getPhotoWithTarget } from '../lib/photoStorage';
-import { uploadFotoBersama } from '../lib/api';
+import { uploadFotoBersama, SUPABASE_EDGE_FUNCTION_URL } from '../lib/api';
 import { getIntuitiveErrorMessage } from '../lib/errorHandler';
 
 interface UploadPhotoPageProps {
@@ -194,7 +194,7 @@ export function UploadPhotoPage({
           const rawErr = uploadRes.rawError;
           const rawReport = {
             timestamp: new Date().toISOString(),
-            endpoint: rawErr?.url || 'https://cvjjdsxguzuhnnnxneec.supabase.co/functions/v1/logika/upload-photo',
+            endpoint: rawErr?.url || `${SUPABASE_EDGE_FUNCTION_URL}/upload-photo`,
             httpStatus: rawErr?.status ?? 0,
             httpStatusText: rawErr?.statusText ?? 'UNKNOWN',
             uploaderNim: currentUser.nim,

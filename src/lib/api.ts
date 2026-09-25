@@ -20,14 +20,18 @@ export function getEdgeFunctionHeaders(customHeaders?: Record<string, string>): 
 
 /**
  * API Client for interacting with the Supabase Edge Function
- * Endpoint: https://cvjjdsxguzuhnnnxneec.supabase.co/functions/v1/logika
  */
+const rawSupabaseUrl = (
+  import.meta.env.VITE_SUPABASE_URL || 'https://cvjjdsxguzuhnnnxneec.supabase.co'
+).trim().replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
 
-export const SUPABASE_EDGE_FUNCTION_URL =
-  'https://cvjjdsxguzuhnnnxneec.supabase.co/functions/v1/logika';
+export const SUPABASE_EDGE_FUNCTION_URL = (
+  import.meta.env.VITE_SUPABASE_EDGE_FUNCTION_URL ||
+  `${rawSupabaseUrl}/functions/v1/logika`
+).trim();
 
 export const EDGE_FUNCTION_CANDIDATE_URLS = [
-  'https://cvjjdsxguzuhnnnxneec.supabase.co/functions/v1/logika',
+  SUPABASE_EDGE_FUNCTION_URL,
 ];
 
 export const DEFAULT_DRIVE_FOLDER_ID = '1MuAMDF9gyKuOjGwBiT8vWvVuyfFAELSd';
@@ -538,11 +542,7 @@ export async function requestGenerateReport(
     nama_lengkap: studentName,
     drive_folder_id: driveFolderId,
   };
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${SUPABASE_ANON_KEY_IN_CODE}`,
-    apikey: SUPABASE_ANON_KEY_IN_CODE,
-  };
+  const headers = getEdgeFunctionHeaders({ 'Content-Type': 'application/json' });
 
   // 1. Try candidate Edge Function URLs
   for (const baseUrl of EDGE_FUNCTION_CANDIDATE_URLS) {
@@ -710,10 +710,7 @@ export async function getReportStatus(userNim: string): Promise<{
   }
 
   // 2. Fallback to candidate Edge Function URLs if DB returned nothing or had an issue
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${SUPABASE_ANON_KEY_IN_CODE}`,
-    apikey: SUPABASE_ANON_KEY_IN_CODE,
-  };
+  const headers = getEdgeFunctionHeaders();
 
   for (const baseUrl of EDGE_FUNCTION_CANDIDATE_URLS) {
     try {

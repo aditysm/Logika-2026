@@ -1,6 +1,8 @@
 import { Mahasiswa, PhotoRecord } from '../types';
 
-export const ACTIVE_PROJECT_REF = 'cvjjdsxguzuhnnnxneec';
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+const matchRef = rawUrl.match(/https:\/\/([a-z0-9-]+)\.supabase/i);
+export const ACTIVE_PROJECT_REF = matchRef ? matchRef[1] : 'cvjjdsxguzuhnnnxneec';
 const PHOTO_STORAGE_KEY = `logika_2026_photo_records_${ACTIVE_PROJECT_REF}`;
 const USER_SESSION_KEY = `logika_2026_current_user_nim_${ACTIVE_PROJECT_REF}`;
 const PROFILE_OVERRIDES_KEY = `logika_2026_profile_overrides_${ACTIVE_PROJECT_REF}`;

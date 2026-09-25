@@ -12,9 +12,10 @@ import { getIntuitiveErrorMessage } from './errorHandler';
  * - VITE_SUPABASE_ANON_KEY
  * - VITE_SUPABASE_TABLE (default: 'profiles')
  */
-export const SUPABASE_URL_IN_CODE = 'https://cvjjdsxguzuhnnnxneec.supabase.co';
+export const SUPABASE_URL_IN_CODE =
+  (import.meta.env.VITE_SUPABASE_URL || 'https://cvjjdsxguzuhnnnxneec.supabase.co').trim();
 export const SUPABASE_ANON_KEY_IN_CODE =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ampkc3hndXp1aG5ubnhuZWVjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA0NTk5OSwiZXhwIjoyMTA1NjIxOTk5fQ.YeQIhtxltPSuD--tDsMViyvRoZVErAlRgA58MkrWdsY';
+  (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
 export const DEFAULT_PROFILES_TABLE = 'profiles';
 export const DEFAULT_GROUPS_TABLE = 'groups';
@@ -50,7 +51,7 @@ export function getActiveSupabaseConfig(): SupabaseConfig {
   url = url.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
 
   const anonKey = (env.VITE_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY_IN_CODE || '').trim();
-  const tableName = (env.VITE_SUPABASE_TABLE || DEFAULT_PROFILES_TABLE).trim();
+  const tableName = DEFAULT_PROFILES_TABLE;
 
   return {
     url,
