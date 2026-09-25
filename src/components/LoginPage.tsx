@@ -1,7 +1,7 @@
 import { useState, useMemo, FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, KeyRound, Loader2, LogIn, Search, ShieldAlert, ShieldCheck, Sparkles, UserCheck, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Camera, CheckCircle2, ChevronDown, Database, KeyRound, Loader2, LogIn, Search, ShieldAlert, ShieldCheck, Sparkles, UserCheck, X } from 'lucide-react';
 import { Mahasiswa } from '../types';
 import { findStudentInList } from '../lib/photoStorage';
 
@@ -20,6 +20,7 @@ interface LoginPageProps {
   onLogin: (nim: string) => void;
   onContinueWithoutAccount: () => void;
   targetStudentForUpload?: Mahasiswa | null;
+  onOpenConfig?: () => void;
 }
 
 export function LoginPage({
@@ -28,6 +29,7 @@ export function LoginPage({
   onLogin,
   onContinueWithoutAccount,
   targetStudentForUpload,
+  onOpenConfig,
 }: LoginPageProps) {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -217,6 +219,33 @@ export function LoginPage({
                 : 'Masukkan NIM Anda untuk mengakses progress foto bersama dan profil pribadi.'}
             </p>
           </div>
+
+          {/* Warning banner if students array is empty (e.g. Supabase anon key not set in GitHub Pages) */}
+          {!isLoading && students.length === 0 && (
+            <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
+              <div className="flex items-start gap-2.5">
+                <Database className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-amber-950">
+                    Data Mahasiswa Belum Termuat
+                  </p>
+                  <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                    Kunci publik Supabase (Anon Key) belum terkonfigurasi pada hosting statis GitHub Pages ini.
+                  </p>
+                </div>
+              </div>
+              {onOpenConfig && (
+                <button
+                  type="button"
+                  onClick={onOpenConfig}
+                  className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:scale-98 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Atur Kunci Supabase Sekarang</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-3.5">

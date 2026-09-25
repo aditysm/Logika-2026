@@ -46,11 +46,40 @@ let cachedConfigKey = '';
 export function getActiveSupabaseConfig(): SupabaseConfig {
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
 
-  let url = (env.VITE_SUPABASE_URL || SUPABASE_URL_IN_CODE || '').trim();
+  // 1. Check URL parameters (e.g. ?anon_key=... or ?supabase_key=...)
+  if (typeof window !== 'undefined' && window.location) {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('anon_key') || urlParams.get('supabase_key') || urlParams.get('key');
+      const urlUrl = urlParams.get('supabase_url') || urlParams.get('url');
+      if (urlKey && window.localStorage) {
+        localStorage.setItem('VITE_SUPABASE_ANON_KEY', urlKey.trim());
+      }
+      if (urlUrl && window.localStorage) {
+        localStorage.setItem('VITE_SUPABASE_URL', urlUrl.trim());
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  // 2. Read from localStorage if not provided in env
+  let storedUrl = '';
+  let storedKey = '';
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      storedUrl = (localStorage.getItem('VITE_SUPABASE_URL') || localStorage.getItem('supabase_url') || '').trim();
+      storedKey = (localStorage.getItem('VITE_SUPABASE_ANON_KEY') || localStorage.getItem('supabase_anon_key') || '').trim();
+    } catch {
+      // Ignore
+    }
+  }
+
+  let url = (env.VITE_SUPABASE_URL || storedUrl || SUPABASE_URL_IN_CODE || '').trim();
   // Strip trailing /rest/v1 or trailing slashes if present
   url = url.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
 
-  const anonKey = (env.VITE_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY_IN_CODE || '').trim();
+  const anonKey = (env.VITE_SUPABASE_ANON_KEY || storedKey || SUPABASE_ANON_KEY_IN_CODE || '').trim();
   const tableName = DEFAULT_PROFILES_TABLE;
 
   return {
@@ -60,13 +89,30 @@ export function getActiveSupabaseConfig(): SupabaseConfig {
   };
 }
 
-export function saveSupabaseConfig(_config: SupabaseConfig): void {
-  // No-op for in-code configuration
+export function saveSupabaseConfig(config: SupabaseConfig): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      if (config.url) localStorage.setItem('VITE_SUPABASE_URL', config.url.trim());
+      if (config.anonKey) localStorage.setItem('VITE_SUPABASE_ANON_KEY', config.anonKey.trim());
+    } catch (e) {
+      console.error('Failed to save Supabase config to localStorage:', e);
+    }
+  }
   cachedClient = null;
   cachedConfigKey = '';
 }
 
 export function removeSupabaseConfig(): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.removeItem('VITE_SUPABASE_URL');
+      localStorage.removeItem('VITE_SUPABASE_ANON_KEY');
+      localStorage.removeItem('supabase_url');
+      localStorage.removeItem('supabase_anon_key');
+    } catch (e) {
+      console.error('Failed to remove Supabase config from localStorage:', e);
+    }
+  }
   cachedClient = null;
   cachedConfigKey = '';
 }

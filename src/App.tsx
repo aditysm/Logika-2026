@@ -23,6 +23,7 @@ import { LeaderboardPage } from './components/LeaderboardPage';
 import { AdminModePage } from './components/AdminModePage';
 import { MainListView } from './components/MainListView';
 import { TierWarningBanner } from './components/TierWarningBanner';
+import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { generateStudentReport } from './lib/reportGenerator';
 import { requestGenerateReport } from './lib/api';
@@ -141,6 +142,7 @@ export default function App() {
   );
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState<boolean>(false);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
 
   // Online / Offline intuitive connection status notification
   useEffect(() => {
@@ -985,6 +987,7 @@ export default function App() {
                       students={students}
                       isLoading={isLoading}
                       targetStudentForUpload={pendingUploadTarget}
+                      onOpenConfig={() => setIsConfigModalOpen(true)}
                     />
                   </div>
                 )
@@ -1329,6 +1332,16 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Supabase Connection Configuration Modal */}
+      <SupabaseConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        onConfigSaved={() => {
+          loadData({ force: true });
+        }}
+        initialError={connectionStatus.errorMessage}
+      />
     </div>
   );
 }

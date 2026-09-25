@@ -25,6 +25,10 @@ jobs:
         run: npm install
 
       - name: Build Application
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL || 'https://cvjjdsxguzuhnnnxneec.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_EDGE_FUNCTION_URL: ${{ secrets.VITE_SUPABASE_EDGE_FUNCTION_URL || vars.VITE_SUPABASE_EDGE_FUNCTION_URL || 'https://cvjjdsxguzuhnnnxneec.supabase.co/functions/v1/logika' }}
         run: |
           npm run build
           cp dist/index.html dist/404.html
