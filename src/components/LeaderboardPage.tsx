@@ -3,6 +3,7 @@ import {
   Trophy,
   Medal,
   Crown,
+  Bug,
   Clock,
   Calendar,
   Flame,
@@ -921,7 +922,7 @@ export function LeaderboardPage({
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p
                           className={`text-sm font-bold truncate ${
                             isCurrentUser ? 'text-blue-950 font-black' : 'text-slate-900'
@@ -929,6 +930,12 @@ export function LeaderboardPage({
                         >
                           {item.student.namaLengkap}
                         </p>
+                        {item.student.nim && item.student.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (
+                          <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200 text-[9px] font-bold inline-flex items-center gap-1 shadow-2xs">
+                            <Bug className="w-2.5 h-2.5 text-purple-600" />
+                            <span>Bug Hunter</span>
+                          </span>
+                        )}
                         {isCurrentUser && (
                           <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[9px] font-black uppercase tracking-wider shadow-2xs">
                             Anda

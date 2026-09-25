@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, FormEvent } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   ArrowLeft,
+  Bug,
   Camera,
   Check,
   CheckCircle2,
@@ -390,6 +391,13 @@ Alamat Email: ${student.email}`;
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold uppercase tracking-wider shadow-2xs">
                   <Crown className="w-3.5 h-3.5 text-amber-600 fill-amber-300" />
                   Ketua Kelompok
+                </span>
+              )}
+
+              {student.nim && student.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 text-[11px] font-bold uppercase tracking-wider shadow-2xs">
+                  <Bug className="w-3.5 h-3.5 text-purple-600" />
+                  Bug Hunter
                 </span>
               )}
 

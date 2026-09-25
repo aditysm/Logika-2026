@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, 
+  Bug,
   CheckCircle2, 
   Circle, 
   Users, 
@@ -410,6 +411,12 @@ export function TrackingPage({
                           </p>
                           {student.namaPanggilan && (
                             <span className="text-slate-400 font-medium text-[11px]">({student.namaPanggilan})</span>
+                          )}
+                          {student.nim && student.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (
+                            <span className="px-1.5 py-0.5 bg-purple-50 text-purple-800 border border-purple-200 text-[8px] font-bold uppercase rounded-md tracking-wider shrink-0 inline-flex items-center gap-0.5 shadow-2xs">
+                              <Bug className="w-2.5 h-2.5 text-purple-600" />
+                              <span>Bug Hunter</span>
+                            </span>
                           )}
                           {isMe && (
                             <span className="px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black uppercase rounded-md tracking-wider shrink-0">SAYA</span>

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import {
+  ArrowRight,
+  Bug,
   CheckCircle2,
   ExternalLink,
   Folder,
@@ -11,7 +13,6 @@ import {
   FileText,
   User,
   FolderCheck,
-  ArrowRight,
 } from 'lucide-react';
 import { Mahasiswa, PhotoRecord } from '../types';
 import { normalizeNim, getTakenNimSet } from '../lib/photoStorage';
@@ -70,6 +71,12 @@ export function UserProgressBanner({
               <span className="font-sans font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-md text-[10px] leading-none shrink-0">
                 {currentUser.kelompok}
               </span>
+              {currentUser.nim && currentUser.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (
+                <span className="inline-flex items-center gap-1 font-sans font-bold text-purple-800 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-md text-[10px] leading-none shrink-0">
+                  <Bug className="w-2.5 h-2.5 text-purple-600" />
+                  <span>Bug Hunter</span>
+                </span>
+              )}
               <span className="text-slate-300">&bull;</span>
               <span>{currentUser.nim}</span>
               {currentUser.driveFolderUrl && (

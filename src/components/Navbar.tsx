@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, FolderCheck, CheckCircle2, ArrowRight, ShieldCheck, Trophy } from 'lucide-react';
+import { Bug, ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, FolderCheck, CheckCircle2, ArrowRight, ShieldCheck, Trophy } from 'lucide-react';
 import { Mahasiswa } from '../types';
 
 interface NavbarProps {
@@ -174,10 +174,16 @@ export function Navbar({
                         <p className="text-xs font-mono text-slate-500 truncate">
                           {currentUser.nim}
                         </p>
-                        <div className="pt-0.5">
+                        <div className="pt-0.5 flex flex-wrap items-center gap-1.5">
                           <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md truncate max-w-full">
                             {currentUser.kelompok}
                           </span>
+                          {currentUser.nim && currentUser.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md shadow-2xs">
+                              <Bug className="w-2.5 h-2.5 text-purple-600" />
+                              <span>Bug Hunter</span>
+                            </span>
+                          )}
                         </div>
                       </div>
 

@@ -1,4 +1,4 @@
-import { Camera, CheckCircle2, ChevronRight, Crown, Heart, Mail, MapPin, Sparkles, User } from 'lucide-react';
+import { Bug, Camera, CheckCircle2, ChevronRight, Crown, Heart, Mail, MapPin, Sparkles, User } from 'lucide-react';
 import { Mahasiswa } from '../types';
 import { formatWhatsAppUrl, formatPhoneDisplay } from '../lib/supabase';
 import { WhatsAppIcon } from './WhatsAppIcon';
@@ -123,6 +123,15 @@ export function StudentCard({
                 >
                   <Crown className="w-3 h-3 text-amber-600 fill-amber-400 shrink-0" />
                   <span>Ketua</span>
+                </span>
+              )}
+              {student.nim && student.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (
+                <span
+                  title="Bug Hunter"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-300/90 shadow-2xs shrink-0"
+                >
+                  <Bug className="w-3 h-3 text-purple-600 fill-purple-300 shrink-0" />
+                  <span>Bug Hunter</span>
                 </span>
               )}
             </div>
