@@ -478,7 +478,7 @@ export default function App() {
   const handleOpenUploadPhoto = (student: Mahasiswa) => {
     if (!currentUserNim) {
       setPendingUploadTarget(student);
-      setToastMessage(`Silakan login untuk mengunggah foto bersama ${student.namaPanggilan || student.namaLengkap}.`);
+      setToastMessage(`Silahkan login untuk mengunggah foto bersama ${student.namaPanggilan || student.namaLengkap}.`);
       navigate(`/login?return=upload&nim=${encodeURIComponent(student.nim || student.id)}`);
       return;
     }
@@ -500,7 +500,7 @@ export default function App() {
 
       if ((currentUser.tier || 'free') === 'free') {
         navigate('/pricing');
-        setToastMessage('Unggah foto memerlukan Paket Dasar. Silakan upgrade!');
+        setToastMessage('Unggah foto memerlukan Paket Dasar. Silahkan upgrade!');
         setTimeout(() => setToastMessage(null), 3000);
         return;
       }
@@ -1058,7 +1058,7 @@ export default function App() {
                         <strong className="font-mono text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">
                           {uploadParamNim || 'mahasiswa'}
                         </strong>{' '}
-                        tidak ditemukan atau telah kadaluarsa. Silakan pilih kembali mahasiswa melalui beranda atau daftar tracking.
+                        tidak ditemukan atau telah kadaluarsa. Silahkan pilih kembali mahasiswa melalui beranda atau daftar tracking.
                       </p>
                     </div>
                     <div className="pt-2 flex flex-col gap-2.5">
@@ -1092,7 +1092,7 @@ export default function App() {
                       <p className="text-xs text-slate-600 leading-relaxed">
                         Anda membuka tautan upload foto bersama dengan{' '}
                         <strong className="text-slate-800 font-semibold">{uploadTargetStudent.namaLengkap}</strong>{' '}
-                        ({uploadTargetStudent.nim}). Silakan masuk dengan akun NIM Anda agar foto tersimpan rapi.
+                        ({uploadTargetStudent.nim}). Silahkan masuk dengan akun NIM Anda agar foto tersimpan rapi.
                       </p>
                     </div>
                     <div className="pt-2 flex flex-col gap-2.5">

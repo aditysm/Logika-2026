@@ -416,7 +416,7 @@ export function EditProfilePage({
             <div className="pt-2 border-t border-slate-200/60 text-[11px] text-slate-500 leading-relaxed">
               {(currentUser.tier || 'free') === 'free' ? (
                 <span>
-                  <strong className="text-rose-600">Mengapa Terkunci?</strong> Anda berada pada paket Free. Untuk mengakses folder penyimpanan Google Drive khusus tugas ini, silakan tingkatkan akun Anda ke <strong>Paket Basic</strong> atau <strong>Paket Pro</strong> di menu utama.
+                  <strong className="text-rose-600">Mengapa Terkunci?</strong> Anda berada pada paket Free. Untuk mengakses folder penyimpanan Google Drive khusus tugas ini, silahkan tingkatkan akun Anda ke <strong>Paket Basic</strong> atau <strong>Paket Pro</strong> di menu utama.
                 </span>
               ) : (
                 <span>

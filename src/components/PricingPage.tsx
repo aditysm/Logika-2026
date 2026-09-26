@@ -125,7 +125,7 @@ export function PricingPage({
     {
       question: 'Berapa lama waktu yang dibutuhkan setelah mengirim bukti pembayaran?',
       answer:
-        'Verifikasi dilakukan secara manual oleh tim pengelola kelompok. Biasanya memakan waktu antara 5 hingga 15 menit. Setelah mengirim bukti, silakan klik tombol "Sinkronkan Status" di bawah untuk memperbarui status akun Anda.',
+        'Verifikasi dilakukan secara manual oleh tim pengelola kelompok. Biasanya memakan waktu antara 5 hingga 15 menit. Setelah mengirim bukti, silahkan klik tombol "Sinkronkan Status" di bawah untuk memperbarui status akun Anda.',
     },
   ];
 
@@ -534,7 +534,7 @@ export function PricingPage({
             <div className="text-center py-6 border border-dashed border-slate-200 bg-slate-50/50 rounded-xl space-y-1">
               <p className="text-xs font-bold text-slate-600">Belum ada riwayat transaksi</p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Silakan pilih paket di atas dan unggah bukti transfer Anda untuk mengaktifkan fitur.
+                Silahkan pilih paket di atas dan unggah bukti transfer Anda untuk mengaktifkan fitur.
               </p>
             </div>
           )}

@@ -226,7 +226,7 @@ export function UserProgressBanner({
                   Selamat!
                 </h4>
                 <p className="text-xs text-emerald-800/95 leading-relaxed">
-                  Semua foto tugas bersama telah selesai (100%). Silakan buat folder &amp; ajukan dokumen laporan Word (.docx) sekarang.
+                  Semua foto tugas bersama telah selesai (100%). Silahkan buat folder &amp; ajukan dokumen laporan Word (.docx) sekarang.
                 </p>
               </div>
             </div>

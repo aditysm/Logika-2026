@@ -213,12 +213,12 @@ export function QRScannerModal({
 
         if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied')) {
           displayMessage =
-            'Izin kamera ditolak. Silakan klik ikon gembok di bilah alamat browser Anda dan aktifkan kamera.';
+            'Izin kamera ditolak. Silahkan klik ikon gembok di bilah alamat browser Anda dan aktifkan kamera.';
           isPermission = true;
         } else if (err?.name === 'NotFoundError') {
           displayMessage = 'Kamera tidak ditemukan pada perangkat Anda.';
         } else if (err?.message?.includes('not found')) {
-          displayMessage = 'Sistem gagal memuat area pemindaian. Silakan coba lagi.';
+          displayMessage = 'Sistem gagal memuat area pemindaian. Silahkan coba lagi.';
         }
 
         setError({ message: displayMessage, isPermission });

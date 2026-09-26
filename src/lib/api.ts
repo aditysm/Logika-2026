@@ -160,7 +160,7 @@ export async function updateProfilUser(
     }
 
     if (!response) {
-      return { success: false, error: 'Tidak dapat terhubung ke server aplikasi. Silakan periksa koneksi internet Anda atau coba lagi nanti.' };
+      return { success: false, error: 'Tidak dapat terhubung ke server aplikasi. Silahkan periksa koneksi internet Anda atau coba lagi nanti.' };
     }
 
     const result = await response.json().catch(() => null);
@@ -361,7 +361,7 @@ export async function uploadFotoBersama(params: {
     }
 
     if (!response) {
-      const connErr = 'Tidak dapat terhubung ke server penyimpanan foto. Silakan periksa koneksi internet Anda atau coba lagi nanti.';
+      const connErr = 'Tidak dapat terhubung ke server penyimpanan foto. Silahkan periksa koneksi internet Anda atau coba lagi nanti.';
       console.error('Edge function upload error (FULL RAW - NO CONNECTION):', {
         endpoint: SUPABASE_EDGE_FUNCTION_URL,
         headersSent: edgeHeaders,
@@ -477,7 +477,7 @@ export async function hapusFotoSalah(
     }
 
     if (!response) {
-      return { success: false, error: 'Tidak dapat terhubung ke server penghapusan. Silakan coba lagi nanti.' };
+      return { success: false, error: 'Tidak dapat terhubung ke server penghapusan. Silahkan coba lagi nanti.' };
     }
 
     const result = await response.json().catch(() => null);
@@ -641,7 +641,7 @@ export async function requestGenerateReport(
 
   return {
     success: false,
-    error: 'Tidak dapat terhubung ke server antrean laporan. Silakan periksa koneksi Anda.',
+    error: 'Tidak dapat terhubung ke server antrean laporan. Silahkan periksa koneksi Anda.',
   };
 }
 

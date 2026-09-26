@@ -60,7 +60,7 @@ export function LoginPage({
 
     const trimmed = nimInput.trim();
     if (!trimmed) {
-      const msg = 'Silakan masukkan NIM Anda terlebih dahulu.';
+      const msg = 'Silahkan masukkan NIM Anda terlebih dahulu.';
       setErrorMsg(msg);
       showToastError(msg);
       return;
@@ -71,7 +71,7 @@ export function LoginPage({
       setErrorMsg(null);
       setPendingConfirmStudent(student);
     } else {
-      const msg = `NIM "${trimmed}" tidak ditemukan dalam direktori data mahasiswa Logika 2026. Silakan periksa kembali.`;
+      const msg = `NIM "${trimmed}" tidak ditemukan dalam direktori data mahasiswa Logika 2026. Silahkan periksa kembali.`;
       setErrorMsg(msg);
       showToastError(msg);
     }
@@ -89,7 +89,7 @@ export function LoginPage({
 
     if (isProtectedNim(pendingConfirmStudent.nim)) {
       if (passkeyInput.trim() !== REQUIRED_PASSKEY) {
-        const msg = 'Kunci akses keamanan tidak sesuai. Silakan masukkan kunci otorisasi yang valid.';
+        const msg = 'Kunci akses keamanan tidak sesuai. Silahkan masukkan kunci otorisasi yang valid.';
         setPasskeyError(msg);
         showToastError(msg);
         return;
@@ -105,7 +105,7 @@ export function LoginPage({
     setPendingConfirmStudent(null);
     setPasskeyInput('');
     setPasskeyError(null);
-    showToastError('Konfirmasi dibatalkan. Silakan periksa kembali NIM Anda.');
+    showToastError('Konfirmasi dibatalkan. Silahkan periksa kembali NIM Anda.');
   };
 
   const filteredQuickList = useMemo(() => {
@@ -157,7 +157,7 @@ export function LoginPage({
                   Unggah Foto Bersama {targetStudentForUpload.namaPanggilan || targetStudentForUpload.namaLengkap}
                 </p>
                 <p className="text-[11px] text-blue-700 mt-0.5">
-                  Silakan pilih atau masukkan akun Anda di bawah untuk melanjutkan perekaman foto bersama.
+                  Silahkan pilih atau masukkan akun Anda di bawah untuk melanjutkan perekaman foto bersama.
                 </p>
               </div>
             </div>
@@ -169,7 +169,7 @@ export function LoginPage({
                   Akses Photo Tracking
                 </p>
                 <p className="text-[11px] text-blue-700 mt-0.5">
-                  Silakan masuk ke akun Anda terlebih dahulu untuk mengakses checklist foto bersama dan fitur QR.
+                  Silahkan masuk ke akun Anda terlebih dahulu untuk mengakses checklist foto bersama dan fitur QR.
                 </p>
               </div>
             </div>
@@ -181,7 +181,7 @@ export function LoginPage({
                   Akses Fitur Premium
                 </p>
                 <p className="text-[11px] text-amber-700 mt-0.5">
-                  Silakan masuk ke akun Anda terlebih dahulu untuk melihat pilihan paket akun & mengaktifkan fitur premium.
+                  Silahkan masuk ke akun Anda terlebih dahulu untuk melihat pilihan paket akun & mengaktifkan fitur premium.
                 </p>
               </div>
             </div>
@@ -193,7 +193,7 @@ export function LoginPage({
                   Akses Edit Profil
                 </p>
                 <p className="text-[11px] text-blue-700 mt-0.5">
-                  Silakan masuk ke akun Anda terlebih dahulu untuk mengedit profil biodata dan foto.
+                  Silahkan masuk ke akun Anda terlebih dahulu untuk mengedit profil biodata dan foto.
                 </p>
               </div>
             </div>

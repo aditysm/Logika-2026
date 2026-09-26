@@ -36,6 +36,10 @@ import {
   RefreshCw,
   KeyRound,
   ShieldAlert,
+  Trash2,
+  AlertTriangle,
+  Send,
+  X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
@@ -159,6 +163,62 @@ export function StudentDetailView({
   const [showQr, setShowQr] = useState(false);
   const [isCheckedInTracking, setIsCheckedInTracking] = useState(false);
   const [isTrackingLoading, setIsTrackingLoading] = useState(false);
+
+  // Photo deletion request modal state
+  const [isDeletePhotoModalOpen, setIsDeletePhotoModalOpen] = useState(false);
+  const [deletePhotoReason, setDeletePhotoReason] = useState('Salah upload foto');
+  const [deletePhotoCustomReason, setDeletePhotoCustomReason] = useState('');
+
+  const photoReasonPresets = [
+    'Salah upload foto',
+    'Foto bukan diri saya / tidak sesuai',
+    'Foto buram / tidak jelas',
+    'Foto duplikat / terunggah ganda',
+    'Lainnya (isi manual)',
+  ];
+
+  const handleSendDeletePhotoToAdmin = () => {
+    if (!photoRecord) return;
+    const masterList = totalStudents && totalStudents.length > 0 ? totalStudents : allStudents;
+
+    // User A (Yang mengunggah foto)
+    const uploaderNim = photoRecord.uploaderNim || currentUser?.nim || '';
+    const uploaderStudent = masterList.find((s) => normalizeNim(s.nim) === normalizeNim(uploaderNim));
+    const userANama = uploaderStudent?.namaLengkap || photoRecord.uploaderNama || currentUser?.namaLengkap || 'Mahasiswa';
+    const userANim = uploaderStudent?.nim || uploaderNim || '-';
+    const userAKelompok = uploaderStudent?.kelompok || currentUser?.kelompok || '-';
+
+    // User B (Yang diunggah fotonya)
+    const targetNim = photoRecord.targetNim || student.nim || '';
+    const targetStudent = masterList.find((s) => normalizeNim(s.nim) === normalizeNim(targetNim)) || student;
+    const userBNama = targetStudent?.namaLengkap || photoRecord.targetNama || student.namaLengkap || 'Mahasiswa';
+    const userBNim = targetStudent?.nim || targetNim || student.nim || '-';
+    const userBKelompok = targetStudent?.kelompok || student.kelompok || '-';
+
+    const reasonText =
+      deletePhotoReason === 'Lainnya (isi manual)'
+        ? (deletePhotoCustomReason.trim() || 'Lainnya')
+        : (deletePhotoCustomReason.trim() ? `${deletePhotoReason} (${deletePhotoCustomReason.trim()})` : deletePhotoReason);
+
+    const message = `Halo Admin, saya ingin mengajukan permohonan penghapusan foto tugas bersama di Logika 2026.
+
+Rincian Pasangan Foto:
+1. User A (Yang Mengunggah):
+- NIM: ${userANim}
+- Nama Lengkap: ${userANama}
+- Kelompok: ${userAKelompok}
+
+2. User B (Yang Diunggah):
+- NIM: ${userBNim}
+- Nama Lengkap: ${userBNama}
+- Kelompok: ${userBKelompok}
+
+Alasan saya ingin menghapus foto ini karena: ${reasonText}`;
+
+    const adminWaUrl = `https://wa.me/6285738565172?text=${encodeURIComponent(message)}`;
+    window.open(adminWaUrl, '_blank', 'noopener,noreferrer');
+    setIsDeletePhotoModalOpen(false);
+  };
 
   // Get current user NIM - matching new schema where user_id references profiles.nim
   const userKey = currentUser?.nim;
@@ -585,7 +645,7 @@ Alamat Email: ${student.email}`;
                   </div>
                   {activeTier === 'free' ? (
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      <strong className="text-rose-600">Status: Terkunci (Free Tier)</strong>. Anda berada pada paket Free. Untuk mengakses folder penyimpanan Google Drive khusus tugas kuliah ini, silakan tingkatkan akun Anda ke <strong>Paket Basic</strong> atau <strong>Paket Pro</strong>.
+                      <strong className="text-rose-600">Status: Terkunci (Free Tier)</strong>. Anda berada pada paket Free. Untuk mengakses folder penyimpanan Google Drive khusus tugas kuliah ini, silahkan tingkatkan akun Anda ke <strong>Paket Basic</strong> atau <strong>Paket Pro</strong>.
                     </p>
                   ) : (
                     <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -773,15 +833,28 @@ Alamat Email: ${student.email}`;
                 </div>
               </div>
 
-              <button
-                id="btn-detail-view-photo"
-                type="button"
-                onClick={() => onViewPhoto?.(photoRecord, student)}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl transition-all w-full sm:w-auto shadow-2xs active:scale-95 cursor-pointer"
-              >
-                <Eye className="w-4 h-4" />
-                <span>Lihat Foto</span>
-              </button>
+              <div className="flex flex-col items-center sm:items-end gap-1.5 w-full sm:w-auto">
+                <button
+                  id="btn-detail-view-photo"
+                  type="button"
+                  onClick={() => onViewPhoto?.(photoRecord, student)}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl transition-all w-full sm:w-auto shadow-2xs active:scale-95 cursor-pointer"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Lihat Foto</span>
+                </button>
+                <p className="text-[11px] text-slate-500 text-center sm:text-right">
+                  Foto salah?{' '}
+                  <button
+                    id="btn-open-delete-photo-modal"
+                    type="button"
+                    onClick={() => setIsDeletePhotoModalOpen(true)}
+                    className="text-rose-600 hover:text-rose-700 font-bold underline underline-offset-2 hover:underline-offset-4 transition-all cursor-pointer inline-block"
+                  >
+                    Ajukan Penghapusan
+                  </button>
+                </p>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
@@ -1152,7 +1225,7 @@ Alamat Email: ${student.email}`;
                   </div>
 
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Silakan masukkan password keamanan untuk menyalin data mahasiswa ini ke clipboard:
+                    Silahkan masukkan password keamanan untuk menyalin data mahasiswa ini ke clipboard:
                   </p>
 
                   <div className="space-y-2">
@@ -1196,6 +1269,139 @@ Alamat Email: ${student.email}`;
                   </div>
                 </form>
               )}
+            </motion.div>
+          </div>
+        )}
+
+        {/* Modal Permohonan Penghapusan Foto ke WA Admin */}
+        {isDeletePhotoModalOpen && photoRecord && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5"
+            >
+              {/* Modal Header */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                      Ajukan Penghapusan Foto
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Permohonan Hapus Foto Tugas Bersama ke WA Admin
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsDeletePhotoModalOpen(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Rincian Pasangan Foto: User A & User B */}
+              {(() => {
+                const masterList = totalStudents && totalStudents.length > 0 ? totalStudents : allStudents;
+                const uploaderNim = photoRecord.uploaderNim || currentUser?.nim || '';
+                const uploaderStudent = masterList.find((s) => normalizeNim(s.nim) === normalizeNim(uploaderNim));
+                const userANama = uploaderStudent?.namaLengkap || photoRecord.uploaderNama || currentUser?.namaLengkap || 'Mahasiswa';
+                const userANim = uploaderStudent?.nim || uploaderNim || '-';
+                const userAKelompok = uploaderStudent?.kelompok || currentUser?.kelompok || '-';
+
+                const targetNim = photoRecord.targetNim || student.nim || '';
+                const targetStudent = masterList.find((s) => normalizeNim(s.nim) === normalizeNim(targetNim)) || student;
+                const userBNama = targetStudent?.namaLengkap || photoRecord.targetNama || student.namaLengkap || 'Mahasiswa';
+                const userBNim = targetStudent?.nim || targetNim || student.nim || '-';
+                const userBKelompok = targetStudent?.kelompok || student.kelompok || '-';
+
+                return (
+                  <div className="space-y-2.5">
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2.5 text-xs">
+                      {/* User A */}
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-[10px] uppercase">
+                            1. User A (Yang Mengunggah)
+                          </span>
+                          <span className="font-mono font-bold text-slate-600">{userANim}</span>
+                        </div>
+                        <p className="font-bold text-slate-900 truncate">{userANama}</p>
+                        <p className="text-slate-500 text-[11px]">{userAKelompok}</p>
+                      </div>
+
+                      {/* User B */}
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[10px] uppercase">
+                            2. User B (Yang Diunggah)
+                          </span>
+                          <span className="font-mono font-bold text-slate-600">{userBNim}</span>
+                        </div>
+                        <p className="font-bold text-slate-900 truncate">{userBNama}</p>
+                        <p className="text-slate-500 text-[11px]">{userBKelompok}</p>
+                      </div>
+                    </div>
+
+                    {/* Alasan Dropdown & Input */}
+                    <div className="space-y-1.5 pt-1">
+                      <label htmlFor="select-delete-photo-reason" className="block text-xs font-bold text-slate-800">
+                        Alasan saya ingin menghapus foto ini karena:
+                      </label>
+                      <select
+                        id="select-delete-photo-reason"
+                        value={deletePhotoReason}
+                        onChange={(e) => setDeletePhotoReason(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer"
+                      >
+                        {photoReasonPresets.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Manual reason textarea */}
+                      <textarea
+                        rows={2}
+                        value={deletePhotoCustomReason}
+                        onChange={(e) => setDeletePhotoCustomReason(e.target.value)}
+                        placeholder={
+                          deletePhotoReason === 'Lainnya (isi manual)'
+                            ? 'Silahkan ketik alasan detail penghapusan foto...'
+                            : 'Tambahan catatan alasan (opsional)...'
+                        }
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-none"
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsDeletePhotoModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendDeletePhotoToAdmin}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-sm active:scale-95 transition-all cursor-pointer"
+                >
+                  <WhatsAppIcon className="w-4 h-4" />
+                  <span>Kirim Permohonan ke WA Admin</span>
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

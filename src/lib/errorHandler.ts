@@ -4,7 +4,7 @@
  */
 
 export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terjadi kendala saat memproses permintaan.'): string {
-  if (!error) return `${fallbackMessage} Silakan coba lagi nanti.`;
+  if (!error) return `${fallbackMessage} Silahkan coba lagi nanti.`;
 
   let rawMessage = '';
   let status = 0;
@@ -74,7 +74,7 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
     lower.includes('file too large') ||
     lower.includes('entity too large')
   ) {
-    return 'Ukuran berkas foto terlalu besar. Silakan pilih foto dengan resolusi lebih kecil atau kompres terlebih dahulu.';
+    return 'Ukuran berkas foto terlalu besar. Silahkan pilih foto dengan resolusi lebih kecil atau kompres terlebih dahulu.';
   }
 
   // Specific Edge Function / Rollback / Drive validations
@@ -83,7 +83,7 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
   }
 
   if (lower.includes('belum terkonfigurasi') || (lower.includes('folder google drive') && lower.includes('kosong'))) {
-    return 'Tautan Folder Google Drive Anda atau teman belum diisi di profil. Silakan lengkapi tautan folder Drive di menu Edit Profil terlebih dahulu.';
+    return 'Tautan Folder Google Drive Anda atau teman belum diisi di profil. Silahkan lengkapi tautan folder Drive di menu Edit Profil terlebih dahulu.';
   }
 
   // Google Drive 404 or Folder Not Found
@@ -110,7 +110,7 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
   }
 
   if (lower.includes('tidak ditemukan di database')) {
-    return 'Data profil mahasiswa tidak ditemukan di sistem. Silakan muat ulang halaman atau periksa NIM Anda.';
+    return 'Data profil mahasiswa tidak ditemukan di sistem. Silahkan muat ulang halaman atau periksa NIM Anda.';
   }
 
   if (lower.includes('data tidak lengkap') || lower.includes('wajib diisi')) {
@@ -129,7 +129,7 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
     lower.includes('gateway timeout') ||
     lower.includes('internal server error')
   ) {
-    return 'Layanan server sedang sibuk atau dalam pemeliharaan. Foto Anda telah disimpan di perangkat, silakan coba lagi beberapa saat lagi.';
+    return 'Layanan server sedang sibuk atau dalam pemeliharaan. Foto Anda telah disimpan di perangkat, silahkan coba lagi beberapa saat lagi.';
   }
 
   // 6. Permission / Unauthorized (401, 403)
@@ -143,7 +143,7 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
     lower.includes('forbidden') ||
     lower.includes('jwt expired')
   ) {
-    return 'Akses tidak diizinkan atau sesi telah berakhir. Silakan muat ulang halaman lalu coba lagi.';
+    return 'Akses tidak diizinkan atau sesi telah berakhir. Silahkan muat ulang halaman lalu coba lagi.';
   }
 
   // Clean technical jargon if it looks like Postgres / Supabase / Edge Function / SQL / Stack trace error
@@ -162,7 +162,7 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
     lower.includes('<html>') ||
     lower.includes('<!doctype')
   ) {
-    return 'Terjadi kendala teknis saat memproses foto ke server. Foto Anda aman di draf, silakan coba beberapa saat lagi.';
+    return 'Terjadi kendala teknis saat memproses ke server. Silahkan coba beberapa saat lagi.';
   }
 
   // Never return raw technical strings with JSON braces, code snippets, or backend parameters
@@ -183,8 +183,57 @@ export function getIntuitiveErrorMessage(error: unknown, fallbackMessage = 'Terj
     if (trimmed.endsWith('.') || trimmed.endsWith('!') || trimmed.endsWith('?')) {
       return trimmed;
     }
-    return `${trimmed}. Silakan coba lagi nanti.`;
+    return `${trimmed}. Silahkan coba lagi nanti.`;
   }
 
-  return `${fallbackMessage} Silakan coba lagi nanti.`;
+  return `${fallbackMessage} Silahkan coba lagi nanti.`;
+}
+
+/**
+ * Format document report generation errors into intuitive, user-friendly guidance.
+ */
+export function getIntuitiveReportErrorMessage(error: unknown): string {
+  if (!error) return 'Gagal menyusun dokumen laporan. Silahkan ajukan ulang beberapa saat lagi.';
+
+  let rawMessage = '';
+  if (typeof error === 'string') rawMessage = error;
+  else if (error instanceof Error) rawMessage = error.message;
+  else if (typeof error === 'object' && error !== null) {
+    const errObj = error as Record<string, unknown>;
+    rawMessage = String(errObj.error_message || errObj.message || errObj.error || '');
+  }
+
+  const lower = rawMessage.toLowerCase();
+
+  if (lower.includes('quota') || lower.includes('limit') || lower.includes('exceeded')) {
+    return 'Batas kuota layanan penyusunan dokumen sedang penuh sementara. Silahkan coba ajukan ulang dalam beberapa menit.';
+  }
+  if (lower.includes('permission') || lower.includes('access') || lower.includes('denied') || lower.includes('izin')) {
+    return 'Izin folder Google Drive tidak mencukupi untuk menyimpan laporan. Pastikan folder Drive disetel ke "Siapa saja yang memiliki link dapat mengedit" (Editor).';
+  }
+  if (lower.includes('not found') || lower.includes('folder') || lower.includes('tidak ditemukan')) {
+    return 'Folder Google Drive untuk menyimpan laporan tidak ditemukan. Silahkan periksa link folder Drive di menu Edit Profil Anda.';
+  }
+  if (lower.includes('timeout') || lower.includes('exceeded maximum execution time')) {
+    return 'Waktu penyusunan dokumen laporan melebihi batas waktu server (Timeout). Silahkan klik tombol Ajukan Ulang untuk memproses kembali.';
+  }
+  if (lower.includes('corrupt') || lower.includes('download') || lower.includes('image') || lower.includes('foto')) {
+    return 'Terdapat berkas foto tugas yang tidak dapat diunduh oleh server saat penyusunan laporan. Silahkan periksa kembali foto atau ajukan ulang.';
+  }
+
+  const isTechnical =
+    rawMessage.includes('{') ||
+    rawMessage.includes('}') ||
+    rawMessage.includes('":') ||
+    rawMessage.includes('Exception:') ||
+    rawMessage.includes('at ') ||
+    rawMessage.includes('TypeError') ||
+    rawMessage.includes('SyntaxError');
+
+  if (!isTechnical && rawMessage.trim().length > 0 && rawMessage.trim().length < 200) {
+    const trimmed = rawMessage.trim();
+    return trimmed.endsWith('.') ? trimmed : `${trimmed}.`;
+  }
+
+  return 'Terjadi kendala saat menyusun dokumen Word. Silahkan klik tombol "Ajukan Ulang Pembuatan Laporan" beberapa saat lagi.';
 }

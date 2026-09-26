@@ -295,7 +295,7 @@ export function MainListView({
                 Belum Ada Data Mahasiswa
               </h3>
               <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
-                Daftar mahasiswa saat ini belum tersedia atau sedang disiapkan. Silakan muat ulang untuk memeriksa pembaruan data.
+                Daftar mahasiswa saat ini belum tersedia atau sedang disiapkan. Silahkan muat ulang untuk memeriksa pembaruan data.
               </p>
             </div>
             <div className="pt-2">
@@ -322,7 +322,7 @@ export function MainListView({
               Tidak ditemukan hasil
               {searchQuery.trim() ? ` untuk pencarian "${searchQuery.trim()}"` : ''}
               {selectedGroup !== 'ALL' && ` pada ${selectedGroup}`}
-              {filterPhotoStatus !== 'ALL' && ` dengan filter "${filterPhotoStatus}"`}. Silakan coba kata kunci lain atau reset filter.
+              {filterPhotoStatus !== 'ALL' && ` dengan filter "${filterPhotoStatus}"`}. Silahkan coba kata kunci lain atau reset filter.
             </p>
             <div className="pt-2">
               <button
