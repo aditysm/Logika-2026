@@ -213,8 +213,8 @@ export function UserProgressBanner({
         </div>
       </div>
 
-      {/* 100% Completion Prompt Card - Intuitive, responsive, with icon */}
-      {percentage >= 100 && (
+      {/* Completion Prompt Card - Green for 100%, Yellow for >= 130 */}
+      {percentage >= 100 ? (
         <div className="mt-5 pt-4 border-t border-slate-100">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 bg-linear-to-r from-emerald-50/90 via-teal-50/70 to-emerald-50/90 border border-emerald-200 rounded-2xl p-4 sm:p-4.5 shadow-2xs">
             <div className="flex items-start sm:items-center gap-3 min-w-0">
@@ -226,7 +226,7 @@ export function UserProgressBanner({
                   Selamat!
                 </h4>
                 <p className="text-xs text-emerald-800/95 leading-relaxed">
-                  Semua foto tugas bersama telah selesai. Silakan buat folder &amp; ajukan dokumen laporan Word (.docx) sekarang.
+                  Semua foto tugas bersama telah selesai (100%). Silakan buat folder &amp; ajukan dokumen laporan Word (.docx) sekarang.
                 </p>
               </div>
             </div>
@@ -243,7 +243,36 @@ export function UserProgressBanner({
             </button>
           </div>
         </div>
-      )}
+      ) : takenCount >= 130 ? (
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 bg-linear-to-r from-amber-50/95 via-yellow-50/80 to-amber-50/95 border border-amber-300 rounded-2xl p-4 sm:p-4.5 shadow-2xs">
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs ring-4 ring-amber-100">
+                <FolderCheck className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <h4 className="text-xs sm:text-sm font-bold text-amber-950">
+                  Syarat Minimal Terpenuhi (&ge;130 Foto)
+                </h4>
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  Anda telah mengambil <strong>{takenCount} dari {totalFriends} foto</strong> (tersisa <strong className="text-amber-950">{Math.max(0, totalFriends - takenCount)} teman</strong> yang belum difoto). Anda sudah dapat membuat dokumen laporan sekarang.
+                </p>
+              </div>
+            </div>
+
+            <button
+              id="btnGoToReport130"
+              type="button"
+              onClick={onGoToReport}
+              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer shrink-0"
+            >
+              <FileDown className="w-4 h-4" />
+              <span>Buat Dokumen Laporan</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

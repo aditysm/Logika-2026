@@ -51,7 +51,7 @@ export function ReportSection({
   const isSpecialAccess = normalizeNim(currentUser.nim) === normalizeNim('F1D02610029');
 
   // Compute photo percentage accurately across all friends with fast memoization and Set lookup
-  const { totalCount, takenCount, percentage, is100Percent } = useMemo(() => {
+  const { totalCount, takenCount, percentage, is100Percent, isEligibleForReport } = useMemo(() => {
     const myNim = normalizeNim(currentUser.nim);
     const friends = allStudents.filter(
       (s) => (s.nim || '').trim() && normalizeNim(s.nim) !== myNim
@@ -65,13 +65,16 @@ export function ReportSection({
       }
     }
     const pct = countFriends > 0 ? Math.round((count / countFriends) * 100) : 0;
+    const complete = countFriends > 0 && count >= countFriends;
+    const eligible = isSpecialAccess || complete || count >= 130;
     return {
       totalCount: countFriends,
       takenCount: count,
       percentage: pct,
-      is100Percent: countFriends > 0 && count >= countFriends,
+      is100Percent: complete,
+      isEligibleForReport: eligible,
     };
-  }, [currentUser.nim, allStudents, photoRecords]);
+  }, [currentUser.nim, allStudents, photoRecords, isSpecialAccess]);
 
   // Stop polling helper
   const stopPolling = useCallback(() => {
@@ -153,9 +156,9 @@ export function ReportSection({
         return;
       }
 
-      if (!is100Percent) {
+      if (!isEligibleForReport) {
         setActionError(
-          `Progres foto bersama Anda masih ${percentage}% (${takenCount}/${totalCount}). Anda harus menyelesaikan foto bersama 100% seluruh mahasiswa sebelum dapat membuat dokumen laporan.`
+          `Progres foto bersama Anda masih ${percentage}% (${takenCount}/${totalCount}). Anda harus menyelesaikan minimal 130 foto atau 100% seluruh mahasiswa sebelum dapat membuat dokumen laporan.`
         );
         return;
       }
@@ -332,17 +335,36 @@ export function ReportSection({
 
         {/* Progress Info when not 100% (for standard Pro users) */}
         {isPro && !is100Percent && status !== 'completed' && !isSpecialAccess && (
-          <div className="relative z-10 text-xs text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <p className="font-bold text-amber-900">
-                Progres Foto Bersama: {percentage}% ({takenCount}/{totalCount} Mahasiswa)
-              </p>
-              <p className="text-amber-800 text-[11px] leading-relaxed">
-                Tombol pembuatan laporan Word akan otomatis aktif setelah progres foto bersama Anda mencapai 100%.
-              </p>
+          takenCount >= 130 ? (
+            /* Warning / Info Kuning: >=130 foto (bisa buat laporan, sisa segini yang belum) */
+            <div className="relative z-10 text-xs text-amber-900 bg-amber-50/95 border border-amber-300 rounded-xl p-3.5 flex items-start gap-2.5 shadow-2xs">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-amber-950 flex items-center gap-1.5 flex-wrap">
+                  <span>Syarat Minimal Terpenuhi (&ge;130 Foto)</span>
+                  <span className="px-1.5 py-0.5 bg-amber-200 text-amber-900 font-mono text-[10px] font-bold rounded">
+                    {takenCount}/{totalCount} Foto ({percentage}%)
+                  </span>
+                </p>
+                <p className="text-amber-800 text-[11px] leading-relaxed">
+                  Tersisa <strong>{Math.max(0, totalCount - takenCount)} mahasiswa</strong> yang belum difoto. Anda sudah diperbolehkan mengajukan dokumen laporan Word (.docx) sekarang, atau dapat melengkapi sisa foto hingga 100% terlebih dahulu.
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Warning Kuning / Amber biasa bila < 130 foto */
+            <div className="relative z-10 text-xs text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-bold text-amber-900">
+                  Progres Foto Bersama: {percentage}% ({takenCount}/{totalCount} Mahasiswa)
+                </p>
+                <p className="text-amber-800 text-[11px] leading-relaxed">
+                  Tombol pembuatan laporan Word akan otomatis aktif setelah Anda mengambil minimal 130 foto (sisa {Math.max(0, 130 - takenCount)} foto lagi) atau mencapai 100%.
+                </p>
+              </div>
+            </div>
+          )
         )}
 
         {/* Notifications / Error Banner */}
@@ -452,13 +474,19 @@ export function ReportSection({
               {/* Status None or Failed: Active Create Report Button */}
               {(status === 'none' || status === 'failed') && (
                 <>
-                  {isSpecialAccess || is100Percent ? (
+                  {isEligibleForReport ? (
                     <button
                       id="btnGenerateReport"
                       type="button"
                       onClick={handleOpenConfirmation}
                       disabled={isSubmitting}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all shadow-sm cursor-pointer disabled:opacity-75"
+                      className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs text-white active:scale-[0.98] transition-all shadow-sm cursor-pointer disabled:opacity-75 ${
+                        is100Percent
+                          ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200/50'
+                          : takenCount >= 130 && !isSpecialAccess
+                          ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200/50'
+                          : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200/50'
+                      }`}
                     >
                       {isSubmitting ? (
                         <>
@@ -468,7 +496,15 @@ export function ReportSection({
                       ) : (
                         <>
                           <FileText className="w-4 h-4 text-white" />
-                          <span>{status === 'failed' ? 'Ajukan Ulang Pembuatan Laporan' : 'Buat Laporan Word (.docx)'}</span>
+                          <span>
+                            {status === 'failed'
+                              ? 'Ajukan Ulang Pembuatan Laporan'
+                              : is100Percent
+                              ? 'Buat Laporan Word (100% Selesai)'
+                              : takenCount >= 130 && !isSpecialAccess
+                              ? `Buat Laporan Word (${takenCount}/${totalCount} Foto)`
+                              : 'Buat Laporan Word (.docx)'}
+                          </span>
                         </>
                       )}
                     </button>
@@ -478,10 +514,10 @@ export function ReportSection({
                       type="button"
                       disabled
                       className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-80"
-                      title="Selesaikan 100% foto bersama terlebih dahulu"
+                      title="Minimal 130 foto bersama atau 100% selesai"
                     >
                       <Lock className="w-4 h-4 text-slate-400" />
-                      <span>Buat Laporan Word ({percentage}%)</span>
+                      <span>Buat Laporan Word ({takenCount}/130 Foto)</span>
                     </button>
                   )}
                 </>
@@ -632,7 +668,11 @@ export function ReportSection({
                     <ImageIcon className="w-3.5 h-3.5" />
                     <span>Capaian Foto:</span>
                   </span>
-                  <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  <span className={`font-bold px-2 py-0.5 rounded-md border text-xs ${
+                    is100Percent
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : 'text-amber-800 bg-amber-50 border-amber-200'
+                  }`}>
                     {takenCount}/{totalCount} Mahasiswa ({percentage}%)
                   </span>
                 </div>

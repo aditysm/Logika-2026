@@ -5,28 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Logika 2026</title>
     <script>
-      // Single Page App redirect script for GitHub Pages / static CDN hosting
-      // Preserves deep links, subpaths, hash tags (#laporan), and query parameters
+      // Mengarahkan langsung ke beranda utama
       (function() {
-        var path = window.location.pathname;
-        var search = window.location.search;
-        var hash = window.location.hash;
-        var fullTarget = path + search + hash;
-
-        try {
-          sessionStorage.setItem('spa_redirect', fullTarget);
-        } catch (e) {}
-
-        // Fallback using redirect query param so BrowserRouter/index.html can restore it
-        window.location.replace('/?redirect=' + encodeURIComponent(fullTarget));
+        window.location.replace('/');
       })();
     </script>
+    <meta http-equiv="refresh" content="0; url=/" />
   </head>
   <body style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f8fafc; color: #334155;">
     <div style="text-align: center; padding: 20px;">
       <div style="width: 32px; height: 32px; border: 3px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px auto;"></div>
-      <p style="font-size: 0.95rem; font-weight: 600; color: #1e293b; margin: 0;">Mengarahkan ke Logika 2026...</p>
-      <p style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">Memuat halaman yang dituju...</p>
+      <p style="font-size: 0.95rem; font-weight: 600; color: #1e293b; margin: 0;">Mengarahkan ke Beranda Logika 2026...</p>
+      <p style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">Memuat halaman utama...</p>
     </div>
     <style>
       @keyframes spin {
