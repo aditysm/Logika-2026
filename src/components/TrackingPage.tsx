@@ -16,13 +16,14 @@ import {
   UserCheck,
   Sparkles,
   X,
+  UserX,
 } from 'lucide-react';
 import { Mahasiswa, PhotoRecord } from '../types';
 import { 
   fetchPhotoTrackingFromSupabase, 
   upsertPhotoTrackingInSupabase 
 } from '../lib/supabase';
-import { hasTakenPhoto, normalizeNim } from '../lib/photoStorage';
+import { hasTakenPhoto, normalizeNim, isWithdrawnStudent } from '../lib/photoStorage';
 import { CustomSelect } from './CustomSelect';
 import { QRScannerModal } from './QRScannerModal';
 
@@ -225,8 +226,12 @@ export function TrackingPage({
     return peerStudents.filter((s) => isStudentCompleted(s.nim)).length;
   }, [peerStudents, trackingMap, photoRecords, currentUser]);
 
-  const totalTarget = Math.max(1, peerStudents.length);
-  const progressPercent = totalTarget > 0 ? Math.round((checkedCount / totalTarget) * 100) : 0;
+  const activePeers = useMemo(() => {
+    return peerStudents.filter((s) => !isWithdrawnStudent(s));
+  }, [peerStudents]);
+
+  const totalTarget = Math.max(1, activePeers.length > 0 ? activePeers.length : peerStudents.length);
+  const progressPercent = checkedCount >= totalTarget ? 100 : totalTarget > 0 ? Math.round((checkedCount / totalTarget) * 100) : 0;
 
   return (
     <div className="max-w-4xl mx-auto px-4 pb-20 space-y-5">
@@ -389,6 +394,7 @@ export function TrackingPage({
                   const isMe = normalizeNim(student.nim) === normalizeNim(currentUser?.nim);
                   const isCompleted = isStudentCompleted(student.nim);
                   const uploaded = isUploaded(student.nim);
+                  const isWithdrawn = isWithdrawnStudent(student);
 
                   return (
                     <motion.div 
@@ -411,6 +417,15 @@ export function TrackingPage({
                           </p>
                           {student.namaPanggilan && (
                             <span className="text-slate-400 font-medium text-[11px]">({student.namaPanggilan})</span>
+                          )}
+                          {isWithdrawn && (
+                            <span
+                              title="Mengundurkan Diri (Foto bersama opsional / tidak wajib)"
+                              className="px-1.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 text-[8px] font-bold uppercase rounded-md tracking-wider shrink-0 inline-flex items-center gap-0.5 shadow-2xs"
+                            >
+                              <UserX className="w-2.5 h-2.5 text-slate-500" />
+                              <span>Mengundurkan Diri</span>
+                            </span>
                           )}
                           {student.nim && student.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (
                             <span className="px-1.5 py-0.5 bg-purple-50 text-purple-800 border border-purple-200 text-[8px] font-bold uppercase rounded-md tracking-wider shrink-0 inline-flex items-center gap-0.5 shadow-2xs">

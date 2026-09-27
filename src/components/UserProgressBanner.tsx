@@ -15,7 +15,7 @@ import {
   FolderCheck,
 } from 'lucide-react';
 import { Mahasiswa, PhotoRecord } from '../types';
-import { normalizeNim, getTakenNimSet } from '../lib/photoStorage';
+import { normalizeNim, getTakenNimSet, isWithdrawnStudent } from '../lib/photoStorage';
 
 interface UserProgressBannerProps {
   currentUser: Mahasiswa;
@@ -40,10 +40,14 @@ export function UserProgressBanner({
 }: UserProgressBannerProps) {
   const currentTier = currentUser.tier || 'free';
 
-  const { totalFriends, takenCount, percentage } = useMemo(() => {
+  const { totalFriends, targetCount, takenCount, percentage, isCompleted } = useMemo(() => {
     const userNim = normalizeNim(currentUser.nim);
     const friends = students.filter((s) => normalizeNim(s.nim) !== userNim);
+    const activeFriends = friends.filter((s) => !isWithdrawnStudent(s));
     const countFriends = friends.length;
+    // Target is active non-withdrawn friends (131)
+    const countTarget = activeFriends.length > 0 ? activeFriends.length : countFriends;
+    
     const takenSet = getTakenNimSet(photoRecords, currentUser.nim);
     let count = 0;
     for (const f of friends) {
@@ -51,8 +55,17 @@ export function UserProgressBanner({
         count++;
       }
     }
-    const pct = countFriends > 0 ? Math.round((count / countFriends) * 100) : 0;
-    return { totalFriends: countFriends, takenCount: count, percentage: pct };
+
+    // Both 131 and 132 are marked 100% / green
+    const completed = count >= countTarget || (countTarget === 131 && count >= 131);
+    const pct = completed ? 100 : countTarget > 0 ? Math.round((count / countTarget) * 100) : 0;
+    return {
+      totalFriends: countFriends,
+      targetCount: countTarget,
+      takenCount: count,
+      percentage: pct,
+      isCompleted: completed,
+    };
   }, [currentUser.nim, students, photoRecords]);
 
   return (
@@ -121,7 +134,7 @@ export function UserProgressBanner({
               <span>Progress Foto Bersama</span>
             </div>
             <span className="text-blue-700 font-bold tabular-nums">
-              {takenCount} dari {totalFriends} Teman ({percentage}%)
+              {takenCount} dari {targetCount} Teman ({percentage}%)
             </span>
           </div>
 
@@ -129,11 +142,13 @@ export function UserProgressBanner({
           <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/40 relative">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                percentage < 35
-                  ? 'bg-orange-500'
-                  : percentage < 75
+                percentage >= 100 || takenCount >= 131
+                  ? 'bg-emerald-500'
+                  : takenCount >= 130
                   ? 'bg-amber-500'
-                  : 'bg-emerald-500'
+                  : percentage < 35
+                  ? 'bg-orange-500'
+                  : 'bg-amber-500'
               }`}
               style={{ width: `${Math.min(100, percentage)}%` }}
             />
@@ -155,7 +170,7 @@ export function UserProgressBanner({
               onClick={() => onFilterPhotoStatusChange('BELUM')}
               className="text-slate-500 font-medium hover:text-blue-600 hover:underline cursor-pointer"
             >
-              <span>{Math.max(0, totalFriends - takenCount)} Belum Foto</span>
+              <span>{Math.max(0, targetCount - takenCount)} Belum Foto</span>
             </button>
           </div>
         </div>
@@ -196,7 +211,7 @@ export function UserProgressBanner({
                   : 'text-slate-600 hover:text-blue-600'
               }`}
             >
-              Belum ({Math.max(0, totalFriends - takenCount)})
+              Belum ({Math.max(0, targetCount - takenCount)})
             </button>
             <button
               type="button"
@@ -213,8 +228,8 @@ export function UserProgressBanner({
         </div>
       </div>
 
-      {/* Completion Prompt Card - Green for 100%, Yellow for >= 130 */}
-      {percentage >= 100 ? (
+      {/* Completion Prompt Card - Green for 100% (>=131), Yellow for 130 */}
+      {isCompleted || takenCount >= 131 || percentage >= 100 ? (
         <div className="mt-5 pt-4 border-t border-slate-100">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 bg-linear-to-r from-emerald-50/90 via-teal-50/70 to-emerald-50/90 border border-emerald-200 rounded-2xl p-4 sm:p-4.5 shadow-2xs">
             <div className="flex items-start sm:items-center gap-3 min-w-0">
@@ -255,7 +270,7 @@ export function UserProgressBanner({
                   Syarat Minimal Terpenuhi (&ge;130 Foto)
                 </h4>
                 <p className="text-xs text-amber-900 leading-relaxed">
-                  Anda telah mengambil <strong>{takenCount} dari {totalFriends} foto</strong> (tersisa <strong className="text-amber-950">{Math.max(0, totalFriends - takenCount)} teman</strong> yang belum difoto). Anda sudah dapat membuat dokumen laporan sekarang.
+                  Anda telah mengambil <strong>{takenCount} dari {targetCount} foto</strong> (tersisa <strong className="text-amber-950">{Math.max(0, targetCount - takenCount)} teman</strong> yang belum difoto). Anda sudah dapat membuat dokumen laporan sekarang.
                 </p>
               </div>
             </div>

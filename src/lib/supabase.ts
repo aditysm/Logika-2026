@@ -265,6 +265,14 @@ export function normalizeMahasiswaRow(
     rawLeader === '1' ||
     rawLeader === 't';
 
+  const cleanNimNorm = nim ? nim.toLowerCase().replace(/[\/\s_-]/g, '') : '';
+  const isWithdrawn =
+    row.is_withdrawn === true ||
+    row.isWithdrawn === true ||
+    row.status === 'withdrawn' ||
+    row.status === 'mengundurkan_diri' ||
+    cleanNimNorm === 'f1d02610112';
+
   return {
     id: (row.id as string) || (row.ID as string) || `mhs-${nim || index}-${Date.now()}`,
     timestamp: timestamp || '-',
@@ -281,6 +289,7 @@ export function normalizeMahasiswaRow(
     driveFolderId: effectiveDriveFolderId || undefined,
     tier,
     isLeader,
+    isWithdrawn,
     raw: row,
   };
 }

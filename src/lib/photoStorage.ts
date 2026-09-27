@@ -121,6 +121,27 @@ export function normalizeNim(nim?: string): string {
 }
 
 /**
+ * List of NIMs of students who have withdrawn (Mengundurkan Diri)
+ */
+export const WITHDRAWN_NIMS: string[] = ['F1D02610112'];
+
+/**
+ * Checks whether a student has withdrawn
+ */
+export function isWithdrawnStudent(studentOrNim?: Mahasiswa | string | null): boolean {
+  if (!studentOrNim) return false;
+  if (typeof studentOrNim === 'object') {
+    if (studentOrNim.isWithdrawn === true) return true;
+    const nim = studentOrNim.nim;
+    if (!nim) return false;
+    const clean = normalizeNim(nim);
+    return WITHDRAWN_NIMS.some((wn) => normalizeNim(wn) === clean);
+  }
+  const clean = normalizeNim(studentOrNim);
+  return WITHDRAWN_NIMS.some((wn) => normalizeNim(wn) === clean);
+}
+
+/**
  * Formats ISO timestamps like "2026-09-12T11:54:24.545072+00:00"
  * into standard Indonesian date format in WITA (UTC+8): "12 September 2026, 19:54 WITA"
  */

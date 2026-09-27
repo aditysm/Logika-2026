@@ -1,6 +1,7 @@
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
 import { Mahasiswa, PhotoRecord } from '../types';
+import { isWithdrawnStudent } from './photoStorage';
 
 /**
  * Generates and downloads a beautifully styled Word Document (.docx)
@@ -16,6 +17,9 @@ export async function generateStudentReport(
     (s) => s.nim !== currentUser.nim && s.id !== currentUser.id
   );
 
+  const activeFriends = targetFriends.filter((s) => !isWithdrawnStudent(s));
+  const targetCount = activeFriends.length > 0 ? activeFriends.length : targetFriends.length;
+
   // Match photo records for this user
   const takenPhotos = photoRecords.filter((r) => {
     const isUploader = r.uploaderNim?.toLowerCase() === currentUser.nim?.toLowerCase();
@@ -25,7 +29,7 @@ export async function generateStudentReport(
 
   const totalFriends = targetFriends.length;
   const takenCount = takenPhotos.length;
-  const percentage = totalFriends > 0 ? Math.round((takenCount / totalFriends) * 100) : 0;
+  const percentage = takenCount >= targetCount ? 100 : targetCount > 0 ? Math.round((takenCount / targetCount) * 100) : 0;
   const tanggalUnduh = new Date().toLocaleDateString('id-ID', {
     weekday: 'long',
     year: 'numeric',

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Mahasiswa, ReportRequest, PhotoRecord } from '../types';
 import { requestGenerateReport, getReportStatus, fetchReportHistoryFromSupabase } from '../lib/api';
-import { normalizeNim, getTakenNimSet } from '../lib/photoStorage';
+import { normalizeNim, getTakenNimSet, isWithdrawnStudent } from '../lib/photoStorage';
 import { getIntuitiveReportErrorMessage } from '../lib/errorHandler';
 import { WhatsAppIcon } from './WhatsAppIcon';
 
@@ -92,12 +92,14 @@ Alasan saya ingin menghapus/reset laporan ini karena: ${reasonText}`;
   const isSpecialAccess = normalizeNim(currentUser.nim) === normalizeNim('F1D02610029');
 
   // Compute photo percentage accurately across all friends with fast memoization and Set lookup
-  const { totalCount, takenCount, percentage, is100Percent, isEligibleForReport } = useMemo(() => {
+  const { totalCount, targetCount, takenCount, percentage, is100Percent, isEligibleForReport } = useMemo(() => {
     const myNim = normalizeNim(currentUser.nim);
     const friends = allStudents.filter(
       (s) => (s.nim || '').trim() && normalizeNim(s.nim) !== myNim
     );
+    const activeFriends = friends.filter((s) => !isWithdrawnStudent(s));
     const countFriends = friends.length;
+    const countTarget = activeFriends.length > 0 ? activeFriends.length : countFriends;
     const takenSet = getTakenNimSet(photoRecords, currentUser.nim);
     let count = 0;
     for (const f of friends) {
@@ -105,11 +107,13 @@ Alasan saya ingin menghapus/reset laporan ini karena: ${reasonText}`;
         count++;
       }
     }
-    const pct = countFriends > 0 ? Math.round((count / countFriends) * 100) : 0;
-    const complete = countFriends > 0 && count >= countFriends;
+    // Complete if reached target (131) or higher (132)
+    const complete = count >= countTarget || (countTarget === 131 && count >= 131);
+    const pct = complete ? 100 : countTarget > 0 ? Math.round((count / countTarget) * 100) : 0;
     const eligible = isSpecialAccess || complete || count >= 130;
     return {
       totalCount: countFriends,
+      targetCount: countTarget,
       takenCount: count,
       percentage: pct,
       is100Percent: complete,
@@ -384,11 +388,11 @@ Alasan saya ingin menghapus/reset laporan ini karena: ${reasonText}`;
                 <p className="font-bold text-amber-950 flex items-center gap-1.5 flex-wrap">
                   <span>Syarat Minimal Terpenuhi (&ge;130 Foto)</span>
                   <span className="px-1.5 py-0.5 bg-amber-200 text-amber-900 font-mono text-[10px] font-bold rounded">
-                    {takenCount}/{totalCount} Foto ({percentage}%)
+                    {takenCount}/{targetCount} Foto ({percentage}%)
                   </span>
                 </p>
                 <p className="text-amber-800 text-[11px] leading-relaxed">
-                  Tersisa <strong>{Math.max(0, totalCount - takenCount)} mahasiswa</strong> yang belum difoto. Anda sudah diperbolehkan mengajukan dokumen laporan Word (.docx) sekarang, atau dapat melengkapi sisa foto hingga 100% terlebih dahulu.
+                  Tersisa <strong>{Math.max(0, targetCount - takenCount)} mahasiswa</strong> yang belum difoto. Anda sudah diperbolehkan mengajukan dokumen laporan Word (.docx) sekarang, atau dapat melengkapi sisa foto hingga 100% terlebih dahulu.
                 </p>
               </div>
             </div>
@@ -398,7 +402,7 @@ Alasan saya ingin menghapus/reset laporan ini karena: ${reasonText}`;
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-bold text-amber-900">
-                  Progres Foto Bersama: {percentage}% ({takenCount}/{totalCount} Mahasiswa)
+                  Progres Foto Bersama: {percentage}% ({takenCount}/{targetCount} Mahasiswa)
                 </p>
                 <p className="text-amber-800 text-[11px] leading-relaxed">
                   Tombol pembuatan laporan Word akan otomatis aktif setelah Anda mengambil minimal 130 foto (sisa {Math.max(0, 130 - takenCount)} foto lagi) atau mencapai 100%.
@@ -544,7 +548,7 @@ Alasan saya ingin menghapus/reset laporan ini karena: ${reasonText}`;
                                 : is100Percent
                                 ? 'Buat Laporan Word (100% Selesai)'
                                 : takenCount >= 130 && !isSpecialAccess
-                                ? `Buat Laporan Word (${takenCount}/${totalCount} Foto)`
+                                ? `Buat Laporan Word (${takenCount}/${targetCount} Foto)`
                                 : 'Buat Laporan Word (.docx)'}
                             </span>
                           </>

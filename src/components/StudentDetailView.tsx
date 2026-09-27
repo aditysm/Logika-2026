@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   Send,
   X,
+  UserX,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
@@ -49,7 +50,7 @@ import {
   fetchPhotoTrackingFromSupabase,
   upsertPhotoTrackingInSupabase 
 } from '../lib/supabase';
-import { formatIndonesianDate, hasTakenPhoto, normalizeNim, getTakenNimSet } from '../lib/photoStorage';
+import { formatIndonesianDate, hasTakenPhoto, normalizeNim, getTakenNimSet, isWithdrawnStudent } from '../lib/photoStorage';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { ReportSection } from './ReportSection';
 import { DEFAULT_DRIVE_FOLDER_URL } from '../lib/api';
@@ -382,14 +383,18 @@ Alamat Email: ${student.email}`;
 
   const backButtonText = 'Kembali ke Menu Utama';
 
+  const isWithdrawn = isWithdrawnStudent(student);
+
   // Calculate personal progress when viewing own profile across total students with useMemo and Set lookup
-  const { myFriends, myTotalFriends, myTakenCount, myPercentage } = useMemo(() => {
+  const { myFriends, myTotalFriends, myTargetCount, myTakenCount, myPercentage } = useMemo(() => {
     if (!isOwnProfile) {
-      return { myFriends: [], myTotalFriends: 0, myTakenCount: 0, myPercentage: 0 };
+      return { myFriends: [], myTotalFriends: 0, myTargetCount: 0, myTakenCount: 0, myPercentage: 0 };
     }
     const masterList = totalStudents && totalStudents.length > 0 ? totalStudents : allStudents;
     const currentNimNorm = normalizeNim(student.nim);
     const friends = masterList.filter((s) => s.nim && normalizeNim(s.nim) !== currentNimNorm);
+    const activeFriends = friends.filter((s) => !isWithdrawnStudent(s));
+    const countTarget = activeFriends.length > 0 ? activeFriends.length : friends.length;
     const takenSet = getTakenNimSet(photoRecords, student.nim);
     let count = 0;
     for (const f of friends) {
@@ -397,8 +402,15 @@ Alamat Email: ${student.email}`;
         count++;
       }
     }
-    const pct = friends.length > 0 ? Math.round((count / friends.length) * 100) : 0;
-    return { myFriends: friends, myTotalFriends: friends.length, myTakenCount: count, myPercentage: pct };
+    const completed = count >= countTarget || (countTarget === 131 && count >= 131);
+    const pct = completed ? 100 : countTarget > 0 ? Math.round((count / countTarget) * 100) : 0;
+    return {
+      myFriends: friends,
+      myTotalFriends: friends.length,
+      myTargetCount: countTarget,
+      myTakenCount: count,
+      myPercentage: pct,
+    };
   }, [isOwnProfile, student.nim, totalStudents, allStudents, photoRecords]);
   const activeTier = currentUser?.tier || student.tier || 'free';
 
@@ -451,6 +463,16 @@ Alamat Email: ${student.email}`;
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold uppercase tracking-wider shadow-2xs">
                   <Crown className="w-3.5 h-3.5 text-amber-600 fill-amber-300" />
                   Ketua Kelompok
+                </span>
+              )}
+
+              {isWithdrawn && (
+                <span
+                  title="Mengundurkan Diri (Foto bersama opsional / tidak wajib)"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-bold uppercase tracking-wider shadow-2xs"
+                >
+                  <UserX className="w-3.5 h-3.5 text-slate-500" />
+                  Mengundurkan Diri
                 </span>
               )}
 
@@ -864,15 +886,23 @@ Alamat Email: ${student.email}`;
                 </div>
                 <div>
                   <div className="flex justify-center sm:justify-start mb-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 bg-blue-100/50 px-2 py-0.5 rounded-md">
-                      Tugas Belum Selesai
-                    </span>
+                    {isWithdrawn ? (
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300">
+                        Mengundurkan Diri &bull; Opsional
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 bg-blue-100/50 px-2 py-0.5 rounded-md">
+                        Tugas Belum Selesai
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-lg font-black text-slate-900 leading-tight">
-                    Ambil Foto Bersama
+                    {isWithdrawn ? 'Foto Bersama (Opsional)' : 'Ambil Foto Bersama'}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                    Lengkapi tugas perkenalan Logika 2026 dengan berfoto bersama rekan Anda.
+                    {isWithdrawn
+                      ? 'Mahasiswa ini telah mengundurkan diri. Foto bersama bersifat opsional dan bukan syarat wajib.'
+                      : 'Lengkapi tugas perkenalan Logika 2026 dengan berfoto bersama rekan Anda.'}
                   </p>
                 </div>
               </div>

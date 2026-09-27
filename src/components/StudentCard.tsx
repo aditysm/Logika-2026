@@ -1,6 +1,7 @@
-import { Bug, Camera, CheckCircle2, ChevronRight, Crown, Heart, Mail, MapPin, Sparkles, User } from 'lucide-react';
+import { Bug, Camera, CheckCircle2, ChevronRight, Crown, Heart, Mail, MapPin, Sparkles, User, UserX } from 'lucide-react';
 import { Mahasiswa } from '../types';
 import { formatWhatsAppUrl, formatPhoneDisplay } from '../lib/supabase';
+import { isWithdrawnStudent } from '../lib/photoStorage';
 import { WhatsAppIcon } from './WhatsAppIcon';
 
 interface StudentCardProps {
@@ -26,6 +27,7 @@ export function StudentCard({
   const waUrl = formatWhatsAppUrl(student.noWa, student.namaPanggilan || student.namaLengkap);
 
   const isSelf = currentUser && student.nim.replace(/[\/\s]/g, '').toLowerCase() === currentUser.nim.replace(/[\/\s]/g, '').toLowerCase();
+  const isWithdrawn = isWithdrawnStudent(student);
 
   // Generate a distinct soft avatar color based on student kelompok
   const groupColors = [
@@ -123,6 +125,15 @@ export function StudentCard({
                 >
                   <Crown className="w-3 h-3 text-amber-600 fill-amber-400 shrink-0" />
                   <span>Ketua</span>
+                </span>
+              )}
+              {isWithdrawn && (
+                <span
+                  title="Mengundurkan Diri (Foto bersama opsional / tidak wajib)"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs shrink-0"
+                >
+                  <UserX className="w-3 h-3 text-slate-500 shrink-0" />
+                  <span>Mengundurkan Diri</span>
                 </span>
               )}
               {student.nim && student.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (

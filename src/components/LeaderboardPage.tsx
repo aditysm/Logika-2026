@@ -18,10 +18,11 @@ import {
   ChevronRight,
   Lock,
   CheckCircle2,
+  UserX,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mahasiswa, PhotoRecord } from '../types';
-import { normalizeNim } from '../lib/photoStorage';
+import { normalizeNim, isWithdrawnStudent } from '../lib/photoStorage';
 import { CustomDatePicker, formatDateToYMD } from './CustomDatePicker';
 import { CustomSelect, CustomSelectOption } from './CustomSelect';
 
@@ -78,10 +79,12 @@ export function LeaderboardPage({
     return 'ALL';
   }, [filterPeriod, todayStr, customDate]);
 
-  // Total companion target (excluding oneself: e.g. 132 or students.length - 1)
+  // Total companion target (excluding oneself and excluding withdrawn students: e.g. 131)
   const totalTarget = useMemo(() => {
-    return students.length > 1 ? students.length - 1 : Math.max(students.length, 1);
-  }, [students.length]);
+    const activeStudents = students.filter((s) => !isWithdrawnStudent(s));
+    const count = activeStudents.length > 1 ? activeStudents.length - 1 : Math.max(activeStudents.length, 1);
+    return count > 0 ? count : (students.length > 1 ? students.length - 1 : 131);
+  }, [students]);
 
   // Extract all unique groups
   const groupOptions = useMemo(() => {
@@ -198,7 +201,12 @@ export function LeaderboardPage({
 
     // Convert map to ranked array
     const list = Array.from(studentMap.values()).map((item) => {
-      const percentage = totalTarget > 0 ? Math.round((item.count / totalTarget) * 1000) / 10 : 0;
+      const percentage =
+        item.count >= totalTarget
+          ? 100
+          : totalTarget > 0
+          ? Math.round((item.count / totalTarget) * 1000) / 10
+          : 0;
       return {
         ...item,
         percentage,
@@ -930,6 +938,15 @@ export function LeaderboardPage({
                         >
                           {item.student.namaLengkap}
                         </p>
+                        {isWithdrawnStudent(item.student) && (
+                          <span
+                            title="Mengundurkan Diri (Foto bersama opsional / tidak wajib)"
+                            className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 text-[9px] font-bold inline-flex items-center gap-1 shadow-2xs"
+                          >
+                            <UserX className="w-2.5 h-2.5 text-slate-500" />
+                            <span>Mengundurkan Diri</span>
+                          </span>
+                        )}
                         {item.student.nim && item.student.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (
                           <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200 text-[9px] font-bold inline-flex items-center gap-1 shadow-2xs">
                             <Bug className="w-2.5 h-2.5 text-purple-600" />

@@ -14,6 +14,7 @@ export interface Mahasiswa {
   driveFolderId?: string;
   tier?: 'free' | 'basic' | 'pro';
   isLeader?: boolean;
+  isWithdrawn?: boolean;
   raw?: Record<string, unknown>;
 }
 
