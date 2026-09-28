@@ -14,6 +14,7 @@ import {
   Edit3,
   ExternalLink,
   Eye,
+  FileCheck,
   Folder,
   Heart,
   Home,
@@ -43,14 +44,14 @@ import {
   UserX,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mahasiswa, PhotoRecord } from '../types';
+import { Mahasiswa, PhotoRecord, ReportRequest } from '../types';
 import { 
   formatWhatsAppUrl, 
   formatPhoneDisplay, 
   fetchPhotoTrackingFromSupabase,
   upsertPhotoTrackingInSupabase 
 } from '../lib/supabase';
-import { formatIndonesianDate, hasTakenPhoto, normalizeNim, getTakenNimSet, isWithdrawnStudent } from '../lib/photoStorage';
+import { formatIndonesianDate, hasTakenPhoto, normalizeNim, getTakenNimSet, isWithdrawnStudent, hasCompletedReport, getCompletedReport } from '../lib/photoStorage';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { ReportSection } from './ReportSection';
 import { DEFAULT_DRIVE_FOLDER_URL } from '../lib/api';
@@ -64,6 +65,7 @@ interface StudentDetailViewProps {
   currentUser?: Mahasiswa | null;
   photoRecord?: PhotoRecord;
   photoRecords?: PhotoRecord[];
+  reportRequests?: ReportRequest[];
   refreshKey?: number;
   onOpenUploadModal?: (student: Mahasiswa) => void;
   onViewPhoto?: (photoRecord: PhotoRecord, student?: Mahasiswa) => void;
@@ -81,6 +83,7 @@ export function StudentDetailView({
   currentUser,
   photoRecord,
   photoRecords = [],
+  reportRequests = [],
   refreshKey = 0,
   onOpenUploadModal,
   onViewPhoto,
@@ -473,6 +476,16 @@ Alamat Email: ${student.email}`;
                 >
                   <UserX className="w-3.5 h-3.5 text-slate-500" />
                   Mengundurkan Diri
+                </span>
+              )}
+
+              {hasCompletedReport(reportRequests, student.nim) && (
+                <span
+                  title="Tugas Selesai & Dokumen Laporan Word (.docx) Telah Selesai Dibuat"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 border border-teal-200 text-[11px] font-bold uppercase tracking-wider shadow-2xs"
+                >
+                  <FileCheck className="w-3.5 h-3.5 text-teal-600" />
+                  Laporan Selesai
                 </span>
               )}
 

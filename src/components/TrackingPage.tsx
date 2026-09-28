@@ -11,6 +11,7 @@ import {
   Camera,
   Check,
   ChevronDown,
+  FileCheck,
   QrCode,
   Scan,
   UserCheck,
@@ -18,12 +19,12 @@ import {
   X,
   UserX,
 } from 'lucide-react';
-import { Mahasiswa, PhotoRecord } from '../types';
+import { Mahasiswa, PhotoRecord, ReportRequest } from '../types';
 import { 
   fetchPhotoTrackingFromSupabase, 
   upsertPhotoTrackingInSupabase 
 } from '../lib/supabase';
-import { hasTakenPhoto, normalizeNim, isWithdrawnStudent } from '../lib/photoStorage';
+import { hasTakenPhoto, normalizeNim, isWithdrawnStudent, hasCompletedReport } from '../lib/photoStorage';
 import { CustomSelect } from './CustomSelect';
 import { QRScannerModal } from './QRScannerModal';
 
@@ -31,6 +32,7 @@ interface TrackingPageProps {
   currentUser: Mahasiswa | null;
   students: Mahasiswa[];
   photoRecords: PhotoRecord[];
+  reportRequests?: ReportRequest[];
   onBack: () => void;
   refreshKey?: number;
   onSelectStudent?: (student: Mahasiswa) => void;
@@ -40,6 +42,7 @@ export function TrackingPage({
   currentUser, 
   students, 
   photoRecords, 
+  reportRequests = [],
   onBack,
   refreshKey = 0,
   onSelectStudent,
@@ -425,6 +428,15 @@ export function TrackingPage({
                             >
                               <UserX className="w-2.5 h-2.5 text-slate-500" />
                               <span>Mengundurkan Diri</span>
+                            </span>
+                          )}
+                          {hasCompletedReport(reportRequests, student.nim) && (
+                            <span
+                              title="Tugas Selesai & Dokumen Laporan Word Telah Selesai Dibuat"
+                              className="px-1.5 py-0.5 bg-teal-50 text-teal-800 border border-teal-200 text-[8px] font-bold uppercase rounded-md tracking-wider shrink-0 inline-flex items-center gap-0.5 shadow-2xs"
+                            >
+                              <FileCheck className="w-2.5 h-2.5 text-teal-600" />
+                              <span>Laporan Selesai</span>
                             </span>
                           )}
                           {student.nim && student.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (

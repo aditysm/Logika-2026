@@ -25,8 +25,8 @@ import { MainListView } from './components/MainListView';
 import { TierWarningBanner } from './components/TierWarningBanner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { generateStudentReport } from './lib/reportGenerator';
-import { requestGenerateReport } from './lib/api';
-import { ConnectionStatus, Mahasiswa, PhotoRecord } from './types';
+import { requestGenerateReport, fetchAllReportRequestsFromSupabase, INITIAL_REPORT_REQUESTS } from './lib/api';
+import { ConnectionStatus, Mahasiswa, PhotoRecord, ReportRequest } from './types';
 import {
   fetchStudentsFromSupabase,
   fetchPhotoLogsFromSupabase,
@@ -102,6 +102,7 @@ export default function App() {
   const [currentUserNim, setCurrentUserNimState] = useState<string | null>(() => getCurrentUserNim());
   const [isGuestMode, setIsGuestMode] = useState<boolean>(false);
   const [photoRecords, setPhotoRecords] = useState<PhotoRecord[]>(() => getPhotoRecords());
+  const [reportRequests, setReportRequests] = useState<ReportRequest[]>(() => INITIAL_REPORT_REQUESTS);
   const [filterPhotoStatus, setFilterPhotoStatus] = useState<'ALL' | 'BELUM' | 'SUDAH'>('ALL');
   const [toast, setToast] = useState<{
     message: string;
@@ -301,6 +302,12 @@ export default function App() {
       setPhotoRecords(finalRecords);
       setMemoryPhotoRecords(finalRecords);
       syncToLocalStorage(finalRecords);
+
+      // Fetch all report generation requests
+      const remoteReports = await fetchAllReportRequestsFromSupabase();
+      if (remoteReports && remoteReports.length > 0) {
+        setReportRequests(remoteReports);
+      }
       
       // Increment refreshKey to trigger re-fetches in child components
       setRefreshKey((prev) => prev + 1);
@@ -893,6 +900,7 @@ export default function App() {
         onOpenTracking={handleOpenTracking}
         onOpenLeaderboard={handleOpenLeaderboard}
         onOpenAdmin={handleOpenAdmin}
+        onOpenStats={() => navigate('/admin/stats')}
         isLoginPage={location.pathname === '/login'}
         onContinueWithoutAccount={handleContinueWithoutAccount}
       />
@@ -927,6 +935,7 @@ export default function App() {
                     sortedStudents={sortedStudents}
                     paginatedStudents={paginatedStudents}
                     photoRecords={photoRecords}
+                    reportRequests={reportRequests}
                     isLoading={isLoading}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
@@ -1003,6 +1012,7 @@ export default function App() {
                       onSelectStudent={handleSelectStudent}
                       currentUser={currentUser}
                       photoRecords={photoRecords}
+                      reportRequests={reportRequests}
                       photoRecord={
                         currentUser
                           ? getPhotoWithTarget(photoRecords, currentUser.nim, selectedStudent.nim)
@@ -1178,6 +1188,7 @@ export default function App() {
                       currentUser={currentUser}
                       students={students}
                       photoRecords={photoRecords}
+                      reportRequests={reportRequests}
                       refreshKey={refreshKey}
                       onBack={handleCloseTracking}
                       onSelectStudent={handleSelectStudent}
@@ -1195,6 +1206,50 @@ export default function App() {
                   <div className="w-full">
                     <AdminModePage
                       currentUser={currentUser}
+                      students={students}
+                      photoRecords={photoRecords}
+                      reportRequests={reportRequests}
+                      initialView="stats"
+                      onBack={handleCloseAdmin}
+                      onDataChanged={() => loadData({ force: true })}
+                    />
+                  </div>
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/stats"
+              element={
+                currentUser?.nim?.trim().toUpperCase().replace(/[\/\s_-]/g, '') === 'F1D02610029' ? (
+                  <div className="w-full">
+                    <AdminModePage
+                      currentUser={currentUser}
+                      students={students}
+                      photoRecords={photoRecords}
+                      reportRequests={reportRequests}
+                      initialView="stats"
+                      onBack={handleCloseAdmin}
+                      onDataChanged={() => loadData({ force: true })}
+                    />
+                  </div>
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/db"
+              element={
+                currentUser?.nim?.trim().toUpperCase().replace(/[\/\s_-]/g, '') === 'F1D02610029' ? (
+                  <div className="w-full">
+                    <AdminModePage
+                      currentUser={currentUser}
+                      students={students}
+                      photoRecords={photoRecords}
+                      reportRequests={reportRequests}
+                      initialView="database"
                       onBack={handleCloseAdmin}
                       onDataChanged={() => loadData({ force: true })}
                     />
@@ -1210,6 +1265,7 @@ export default function App() {
                 <LeaderboardPage
                   students={students}
                   photoRecords={photoRecords}
+                  reportRequests={reportRequests}
                   currentUser={currentUser}
                   onBack={handleCloseLeaderboard}
                   onRefresh={() => loadData({ force: true })}

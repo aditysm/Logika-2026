@@ -1,4 +1,4 @@
-import { Bug, Camera, CheckCircle2, ChevronRight, Crown, Heart, Mail, MapPin, Sparkles, User, UserX } from 'lucide-react';
+import { Bug, Camera, CheckCircle2, ChevronRight, Crown, FileCheck, Heart, Mail, MapPin, Sparkles, User, UserX } from 'lucide-react';
 import { Mahasiswa } from '../types';
 import { formatWhatsAppUrl, formatPhoneDisplay } from '../lib/supabase';
 import { isWithdrawnStudent } from '../lib/photoStorage';
@@ -10,6 +10,7 @@ interface StudentCardProps {
   onSelect: (student: Mahasiswa) => void;
   currentUser?: Mahasiswa | null;
   isPhotoTaken?: boolean;
+  isReportCompleted?: boolean;
   onOpenUploadModal?: (student: Mahasiswa) => void;
   index?: number;
   showIndex?: boolean;
@@ -20,6 +21,7 @@ export function StudentCard({
   onSelect,
   currentUser,
   isPhotoTaken,
+  isReportCompleted,
   onOpenUploadModal,
   index,
   showIndex,
@@ -125,6 +127,15 @@ export function StudentCard({
                 >
                   <Crown className="w-3 h-3 text-amber-600 fill-amber-400 shrink-0" />
                   <span>Ketua</span>
+                </span>
+              )}
+              {isReportCompleted && (
+                <span
+                  title="Tugas Selesai & Dokumen Laporan Word Telah Berhasil Dibuat"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200 shadow-2xs shrink-0"
+                >
+                  <FileCheck className="w-3 h-3 text-teal-600 shrink-0" />
+                  <span>Laporan Selesai</span>
                 </span>
               )}
               {isWithdrawn && (

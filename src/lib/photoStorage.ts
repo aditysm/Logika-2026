@@ -1,4 +1,4 @@
-import { Mahasiswa, PhotoRecord } from '../types';
+import { Mahasiswa, PhotoRecord, ReportRequest } from '../types';
 
 const rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
 const matchRef = rawUrl.match(/https:\/\/([a-z0-9-]+)\.supabase/i);
@@ -139,6 +139,28 @@ export function isWithdrawnStudent(studentOrNim?: Mahasiswa | string | null): bo
   }
   const clean = normalizeNim(studentOrNim);
   return WITHDRAWN_NIMS.some((wn) => normalizeNim(wn) === clean);
+}
+
+/**
+ * Checks whether a student has completed their report (.docx document is ready)
+ */
+export function hasCompletedReport(reportRequests: ReportRequest[] = [], nim?: string): boolean {
+  if (!nim || !Array.isArray(reportRequests)) return false;
+  const clean = normalizeNim(nim);
+  return reportRequests.some(
+    (r) => normalizeNim(r.nim) === clean && r.status === 'completed'
+  );
+}
+
+/**
+ * Retrieves the completed report for a student if one exists
+ */
+export function getCompletedReport(reportRequests: ReportRequest[] = [], nim?: string): ReportRequest | undefined {
+  if (!nim || !Array.isArray(reportRequests)) return undefined;
+  const clean = normalizeNim(nim);
+  return reportRequests.find(
+    (r) => normalizeNim(r.nim) === clean && r.status === 'completed'
+  );
 }
 
 /**

@@ -3,7 +3,8 @@ import { SearchBar } from './SearchBar';
 import { StudentCard } from './StudentCard';
 import { UserProgressBanner } from './UserProgressBanner';
 import { ChevronLeft, ChevronRight, Loader2, RefreshCw, SearchX, Users } from 'lucide-react';
-import { Mahasiswa, PhotoRecord } from '../types';
+import { Mahasiswa, PhotoRecord, ReportRequest } from '../types';
+import { hasCompletedReport } from '../lib/photoStorage';
 
 interface MainListViewProps {
   currentUser: Mahasiswa | null;
@@ -12,6 +13,7 @@ interface MainListViewProps {
   sortedStudents: Mahasiswa[];
   paginatedStudents: Mahasiswa[];
   photoRecords: PhotoRecord[];
+  reportRequests?: ReportRequest[];
   isLoading: boolean;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -44,6 +46,7 @@ export function MainListView({
   sortedStudents,
   paginatedStudents,
   photoRecords,
+  reportRequests = [],
   isLoading,
   searchQuery,
   setSearchQuery,
@@ -177,6 +180,7 @@ export function MainListView({
                         ? hasTakenPhoto(photoRecords, currentUser.nim, student.nim)
                         : false
                     }
+                    isReportCompleted={hasCompletedReport(reportRequests, student.nim)}
                     onOpenUploadModal={(target) => {
                       handleOpenUploadPhoto(target);
                     }}

@@ -672,12 +672,13 @@ export async function saveProfileToSupabase(
   }
 }
 
-// Subscribe to Supabase Realtime changes for profiles, photo_logs & payment_logs
+// Subscribe to Supabase Realtime changes for profiles, photo_logs, payment_logs & report_requests
 export function subscribeToSupabaseRealtime(
   onProfilesChange: () => void,
   onPhotoLogsChange: () => void,
   onPaymentLogsChange?: () => void,
-  onPhotoTrackingChange?: () => void
+  onPhotoTrackingChange?: () => void,
+  onReportRequestsChange?: () => void
 ): () => void {
   const supabase = getSupabaseClient();
   if (!supabase) return () => {};
@@ -716,6 +717,15 @@ export function subscribeToSupabaseRealtime(
         () => {
           if (onPhotoTrackingChange) {
             onPhotoTrackingChange();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'report_requests' },
+        () => {
+          if (onReportRequestsChange) {
+            onReportRequestsChange();
           }
         }
       )

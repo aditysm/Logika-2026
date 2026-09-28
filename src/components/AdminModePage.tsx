@@ -29,10 +29,15 @@ import {
   X
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
-import { Mahasiswa } from '../types';
+import { Mahasiswa, PhotoRecord, ReportRequest } from '../types';
+import { AdminStatsView } from './AdminStatsView';
 
 interface AdminModePageProps {
   currentUser?: Mahasiswa | null;
+  students?: Mahasiswa[];
+  photoRecords?: PhotoRecord[];
+  reportRequests?: ReportRequest[];
+  initialView?: 'stats' | 'database';
   onBack: () => void;
   onDataChanged?: () => void;
 }
@@ -351,9 +356,15 @@ function evaluateRule(
 }
 
 export function AdminModePage({
+  currentUser,
+  students = [],
+  photoRecords = [],
+  reportRequests = [],
+  initialView = 'stats',
   onBack,
   onDataChanged,
 }: AdminModePageProps) {
+  const [activeSection, setActiveSection] = useState<'stats' | 'database'>(initialView);
   const [selectedTable, setSelectedTable] = useState<TableName>('profiles');
   const [tableData, setTableData] = useState<Record<string, unknown>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -833,90 +844,139 @@ export function AdminModePage({
   };
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] flex flex-col bg-slate-900 text-slate-100 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden font-sans">
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {feedbackMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={`fixed top-20 right-6 z-50 px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-3 text-xs font-medium backdrop-blur-md border ${
-              feedbackMessage.isError
-                ? 'bg-rose-950/90 text-rose-200 border-rose-800'
-                : 'bg-emerald-950/90 text-emerald-200 border-emerald-800'
-            }`}
-          >
-            <span>{feedbackMessage.text}</span>
-            <button
-              type="button"
-              onClick={() => setFeedbackMessage(null)}
-              className="p-1 text-slate-400 hover:text-white cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Supabase Top Bar Header */}
-      <div className="h-14 bg-slate-950 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
+    <div className="w-full min-h-[calc(100vh-4rem)] flex flex-col font-sans space-y-4">
+      {/* Admin Mode Top Navigation Tab Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 flex flex-wrap items-center justify-between gap-3 text-white shadow-lg">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onBack}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             title="Kembali ke Aplikasi Utama"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="h-4 w-px bg-slate-800" />
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-slate-400">database</span>
-            <span className="text-slate-600">/</span>
-            <span className="text-slate-400">public</span>
-            <span className="text-slate-600">/</span>
-            <span className="text-emerald-400 font-bold">{selectedTable}</span>
+          <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setActiveSection('stats')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                activeSection === 'stats'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Statistik &amp; Rekap Web</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection('database')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                activeSection === 'database'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>Database Browser</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExportJSON}
-            disabled={isLoading || tableData.length === 0}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-400" />
-            <span>Ekspor JSON</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              fetchTableData();
-              refreshCounts();
-            }}
-            disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
-            title="Segarkan data tabel"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-400' : 'text-slate-400'}`} />
-            <span className="hidden sm:inline">Segarkan</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOpenInsert}
-            disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-98 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tambah Data</span>
-          </button>
+        <div className="flex items-center gap-2 text-xs text-slate-400 font-mono pr-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Admin ID: <strong className="text-emerald-400">F1D02610029</strong></span>
         </div>
       </div>
+
+      {activeSection === 'stats' ? (
+        <AdminStatsView
+          students={students}
+          photoRecords={photoRecords}
+          reportRequests={reportRequests}
+          onBack={onBack}
+          onRefresh={() => {
+            onDataChanged?.();
+          }}
+          isLoading={false}
+        />
+      ) : (
+        <div className="w-full flex-1 flex flex-col bg-slate-900 text-slate-100 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden font-sans">
+          {/* Toast Notification */}
+          <AnimatePresence>
+            {feedbackMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                className={`fixed top-20 right-6 z-50 px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-3 text-xs font-medium backdrop-blur-md border ${
+                  feedbackMessage.isError
+                    ? 'bg-rose-950/90 text-rose-200 border-rose-800'
+                    : 'bg-emerald-950/90 text-emerald-200 border-emerald-800'
+                }`}
+              >
+                <span>{feedbackMessage.text}</span>
+                <button
+                  type="button"
+                  onClick={() => setFeedbackMessage(null)}
+                  className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Supabase Top Bar Header */}
+          <div className="h-14 bg-slate-950 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span className="text-slate-400">database</span>
+                <span className="text-slate-600">/</span>
+                <span className="text-slate-400">public</span>
+                <span className="text-slate-600">/</span>
+                <span className="text-emerald-400 font-bold">{selectedTable}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportJSON}
+                disabled={isLoading || tableData.length === 0}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-400" />
+                <span>Ekspor JSON</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  fetchTableData();
+                  refreshCounts();
+                }}
+                disabled={isLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                title="Segarkan data tabel"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-400' : 'text-slate-400'}`} />
+                <span className="hidden sm:inline">Segarkan</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenInsert}
+                disabled={isLoading}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-98 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Data</span>
+              </button>
+            </div>
+          </div>
 
       {/* Main Content: Sidebar + Table View */}
       <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
@@ -1767,6 +1827,8 @@ export function AdminModePage({
           </div>
         )}
       </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

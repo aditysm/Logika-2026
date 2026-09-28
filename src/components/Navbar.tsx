@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bug, ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, FolderCheck, CheckCircle2, ArrowRight, ShieldCheck, Trophy } from 'lucide-react';
+import { Bug, ChevronDown, LogIn, LogOut, RefreshCw, User, Users, Crown, Sparkles, FolderCheck, CheckCircle2, ArrowRight, ShieldCheck, Trophy, BarChart3, Database } from 'lucide-react';
 import { Mahasiswa } from '../types';
 
 interface NavbarProps {
@@ -16,6 +16,7 @@ interface NavbarProps {
   onOpenTracking?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenAdmin?: () => void;
+  onOpenStats?: () => void;
   isLoginPage?: boolean;
   onContinueWithoutAccount?: () => void;
 }
@@ -34,6 +35,7 @@ export function Navbar({
   onOpenTracking,
   onOpenLeaderboard,
   onOpenAdmin,
+  onOpenStats,
   isLoginPage,
   onContinueWithoutAccount,
 }: NavbarProps) {
@@ -207,26 +209,47 @@ export function Navbar({
                           </div>
                         </button>
 
-                        {/* Mode Admin - Only visible for F1D02610029 */}
+                        {/* Menu Khusus Admin - Only visible for F1D02610029 */}
                         {currentUser?.nim?.trim().toUpperCase().replace(/[\/\s_-]/g, '') === 'F1D02610029' && (
-                          <button
-                            id="menu-btn-mode-admin"
-                            type="button"
-                            onClick={() => {
-                              setIsMenuOpen(false);
-                              onOpenAdmin?.();
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors text-left cursor-pointer"
-                            role="menuitem"
-                          >
-                            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <span>Mode Admin</span>
-                              <p className="text-[10px] font-normal text-slate-400 truncate">
-                                Kelola data &amp; rekap admin
-                              </p>
-                            </div>
-                          </button>
+                          <>
+                            <button
+                              id="menu-btn-statistik-web"
+                              type="button"
+                              onClick={() => {
+                                setIsMenuOpen(false);
+                                onOpenStats ? onOpenStats() : onOpenAdmin?.();
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors text-left cursor-pointer"
+                              role="menuitem"
+                            >
+                              <BarChart3 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <span>Statistik Web</span>
+                                <p className="text-[10px] font-normal text-slate-400 truncate">
+                                  Rekapitulasi progres &amp; ekspor teks
+                                </p>
+                              </div>
+                            </button>
+
+                            <button
+                              id="menu-btn-mode-admin"
+                              type="button"
+                              onClick={() => {
+                                setIsMenuOpen(false);
+                                onOpenAdmin?.();
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors text-left cursor-pointer"
+                              role="menuitem"
+                            >
+                              <Database className="w-4 h-4 text-blue-600 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <span>Database Browser</span>
+                                <p className="text-[10px] font-normal text-slate-400 truncate">
+                                  Kelola tabel database Supabase
+                                </p>
+                              </div>
+                            </button>
+                          </>
                         )}
 
                         <button

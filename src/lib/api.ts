@@ -646,6 +646,56 @@ export async function requestGenerateReport(
 }
 
 /**
+ * Initial sample record of report requests to ensure reliable offline fallback
+ */
+export const INITIAL_REPORT_REQUESTS: ReportRequest[] = [
+  {
+    id: 205,
+    nim: 'F1D02610086',
+    nama_lengkap: 'Rifqi juniansyah rahman',
+    drive_folder_id: '1lmXG6bg6Q-UjGdftyqntwTXDu721DkUY',
+    status: 'completed',
+    pdf_url: 'https://drive.google.com/file/d/1aJwjFObcxz0l_esCiPSvkHLXnCQuyQDe/view?usp=drivesdk',
+    created_at: '2026-09-28 05:34:51.434+00',
+    updated_at: '2026-09-28 09:11:51.033+00',
+  },
+];
+
+/**
+ * Fetch all report generation requests for all students from Supabase
+ */
+export async function fetchAllReportRequestsFromSupabase(): Promise<ReportRequest[]> {
+  try {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('report_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        const map = new Map<string, ReportRequest>();
+        (data as ReportRequest[]).forEach((item) => {
+          if (item.nim) {
+            map.set(item.nim.trim().toLowerCase(), item);
+          }
+        });
+        INITIAL_REPORT_REQUESTS.forEach((initItem) => {
+          const key = initItem.nim.trim().toLowerCase();
+          if (!map.has(key)) {
+            map.set(key, initItem);
+          }
+        });
+        return Array.from(map.values());
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching all report requests from Supabase:', err);
+  }
+  return INITIAL_REPORT_REQUESTS;
+}
+
+/**
  * Fetch all report generation requests history for a student
  */
 export async function fetchReportHistoryFromSupabase(userNim: string): Promise<ReportRequest[]> {

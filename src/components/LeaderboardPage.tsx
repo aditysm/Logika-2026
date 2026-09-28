@@ -19,16 +19,18 @@ import {
   Lock,
   CheckCircle2,
   UserX,
+  FileCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mahasiswa, PhotoRecord } from '../types';
-import { normalizeNim, isWithdrawnStudent } from '../lib/photoStorage';
+import { Mahasiswa, PhotoRecord, ReportRequest } from '../types';
+import { normalizeNim, isWithdrawnStudent, hasCompletedReport } from '../lib/photoStorage';
 import { CustomDatePicker, formatDateToYMD } from './CustomDatePicker';
 import { CustomSelect, CustomSelectOption } from './CustomSelect';
 
 interface LeaderboardPageProps {
   students: Mahasiswa[];
   photoRecords: PhotoRecord[];
+  reportRequests?: ReportRequest[];
   currentUser?: Mahasiswa | null;
   onBack: () => void;
   onRefresh: () => void;
@@ -47,6 +49,7 @@ function WhatsAppIcon({ className = 'w-4 h-4' }: { className?: string }) {
 export function LeaderboardPage({
   students,
   photoRecords,
+  reportRequests = [],
   currentUser,
   onBack,
   onRefresh,
@@ -947,6 +950,15 @@ export function LeaderboardPage({
                           >
                             <UserX className="w-2.5 h-2.5 text-slate-500" />
                             <span>Mengundurkan Diri</span>
+                          </span>
+                        )}
+                        {hasCompletedReport(reportRequests, item.student.nim) && (
+                          <span
+                            title="Tugas Selesai & Dokumen Laporan Word Telah Selesai Dibuat"
+                            className="px-1.5 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 text-[9px] font-bold inline-flex items-center gap-1 shadow-2xs"
+                          >
+                            <FileCheck className="w-2.5 h-2.5 text-teal-600" />
+                            <span>Laporan Selesai</span>
                           </span>
                         )}
                         {item.student.nim && item.student.nim.replace(/[\/\s]/g, '').toUpperCase() === 'F1D02610090' && (
