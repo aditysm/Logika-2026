@@ -397,12 +397,12 @@ Alamat Email: ${student.email}`;
     const countTarget = activeFriends.length > 0 ? activeFriends.length : friends.length;
     const takenSet = getTakenNimSet(photoRecords, student.nim);
     let count = 0;
-    for (const f of friends) {
+    for (const f of activeFriends) {
       if (takenSet.has(normalizeNim(f.nim))) {
         count++;
       }
     }
-    const completed = count >= countTarget || (countTarget === 131 && count >= 131);
+    const completed = count >= countTarget;
     const pct = completed ? 100 : countTarget > 0 ? Math.round((count / countTarget) * 100) : 0;
     return {
       myFriends: friends,

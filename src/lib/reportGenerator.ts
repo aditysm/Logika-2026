@@ -20,14 +20,16 @@ export async function generateStudentReport(
   const activeFriends = targetFriends.filter((s) => !isWithdrawnStudent(s));
   const targetCount = activeFriends.length > 0 ? activeFriends.length : targetFriends.length;
 
-  // Match photo records for this user
+  // Match photo records for this user with active friends (withdrawn student is not counted towards progress)
   const takenPhotos = photoRecords.filter((r) => {
     const isUploader = r.uploaderNim?.toLowerCase() === currentUser.nim?.toLowerCase();
     const isTarget = r.targetNim?.toLowerCase() === currentUser.nim?.toLowerCase();
-    return isUploader || isTarget;
+    if (!isUploader && !isTarget) return false;
+    const otherNim = isUploader ? r.targetNim : r.uploaderNim;
+    return !isWithdrawnStudent(otherNim);
   });
 
-  const totalFriends = targetFriends.length;
+  const totalFriends = targetCount;
   const takenCount = takenPhotos.length;
   const percentage = takenCount >= targetCount ? 100 : targetCount > 0 ? Math.round((takenCount / targetCount) * 100) : 0;
   const tanggalUnduh = new Date().toLocaleDateString('id-ID', {

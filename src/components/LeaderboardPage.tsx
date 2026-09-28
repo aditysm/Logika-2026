@@ -170,9 +170,9 @@ export function LeaderboardPage({
         uploaderEntry.totalUploads += 1;
 
         if (targetNorm && targetNorm !== uploaderNorm) {
-          uploaderEntry.uniqueTargets.add(targetNorm);
-        } else {
-          uploaderEntry.uniqueTargets.add(`photo-${r.id || uploaderEntry.totalUploads}`);
+          if (!isWithdrawnStudent(targetNorm)) {
+            uploaderEntry.uniqueTargets.add(targetNorm);
+          }
         }
         uploaderEntry.count = uploaderEntry.uniqueTargets.size;
 
@@ -187,7 +187,9 @@ export function LeaderboardPage({
       // 2. Attribute to Target (Companion connection exists mutually)
       if (targetNorm && targetNorm !== uploaderNorm && studentMap.has(targetNorm)) {
         const targetEntry = studentMap.get(targetNorm)!;
-        targetEntry.uniqueTargets.add(uploaderNorm);
+        if (!isWithdrawnStudent(uploaderNorm)) {
+          targetEntry.uniqueTargets.add(uploaderNorm);
+        }
         targetEntry.count = targetEntry.uniqueTargets.size;
 
         if (targetEntry.firstUploadTimestamp === null || timeVal < targetEntry.firstUploadTimestamp) {

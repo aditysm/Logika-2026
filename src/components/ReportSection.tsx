@@ -102,13 +102,12 @@ Alasan saya ingin menghapus/reset laporan ini karena: ${reasonText}`;
     const countTarget = activeFriends.length > 0 ? activeFriends.length : countFriends;
     const takenSet = getTakenNimSet(photoRecords, currentUser.nim);
     let count = 0;
-    for (const f of friends) {
+    for (const f of activeFriends) {
       if (takenSet.has(normalizeNim(f.nim))) {
         count++;
       }
     }
-    // Complete if reached target (131) or higher (132)
-    const complete = count >= countTarget || (countTarget === 131 && count >= 131);
+    const complete = count >= countTarget;
     const pct = complete ? 100 : countTarget > 0 ? Math.round((count / countTarget) * 100) : 0;
     const eligible = isSpecialAccess || complete || count >= 130;
     return {

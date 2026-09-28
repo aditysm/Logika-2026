@@ -222,13 +222,13 @@ export function TrackingPage({
     return students.filter((s) => normalizeNim(s.nim) !== myNorm);
   }, [students, currentUser]);
 
-  const checkedCount = useMemo(() => {
-    return peerStudents.filter((s) => isStudentCompleted(s.nim)).length;
-  }, [peerStudents, trackingMap, photoRecords, currentUser]);
-
   const activePeers = useMemo(() => {
     return peerStudents.filter((s) => !isWithdrawnStudent(s));
   }, [peerStudents]);
+
+  const checkedCount = useMemo(() => {
+    return activePeers.filter((s) => isStudentCompleted(s.nim)).length;
+  }, [activePeers, trackingMap, photoRecords, currentUser]);
 
   const totalTarget = Math.max(1, activePeers.length > 0 ? activePeers.length : peerStudents.length);
   const progressPercent = checkedCount >= totalTarget ? 100 : totalTarget > 0 ? Math.round((checkedCount / totalTarget) * 100) : 0;

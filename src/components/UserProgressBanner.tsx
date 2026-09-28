@@ -50,14 +50,13 @@ export function UserProgressBanner({
     
     const takenSet = getTakenNimSet(photoRecords, currentUser.nim);
     let count = 0;
-    for (const f of friends) {
+    for (const f of activeFriends) {
       if (takenSet.has(normalizeNim(f.nim))) {
         count++;
       }
     }
 
-    // Both 131 and 132 are marked 100% / green
-    const completed = count >= countTarget || (countTarget === 131 && count >= 131);
+    const completed = count >= countTarget;
     const pct = completed ? 100 : countTarget > 0 ? Math.round((count / countTarget) * 100) : 0;
     return {
       totalFriends: countFriends,
